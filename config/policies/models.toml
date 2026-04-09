@@ -1,0 +1,13 @@
+[policy]
+name = "host-routed"
+
+[routing]
+analyze = { strategy = "host-default", preferred_hosts = ["opencode", "claude-code"] }
+compile = { strategy = "host-default", preferred_hosts = ["claude-code", "codex"] }
+query = { strategy = "host-default", preferred_hosts = ["claude-code", "opencode"] }
+lint = { strategy = "host-default", preferred_hosts = ["codex", "claude-code"] }
+reconcile = { strategy = "host-default", preferred_hosts = ["codex", "claude-code"] }
+
+[fallback]
+allow_single_host_execution = true
+record_actual_host = true

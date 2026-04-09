@@ -1,0 +1,14 @@
+[host]
+name = "codex"
+enabled = true
+mode = "semi-direct"
+can_write_vault = true
+preferred_tasks = ["init", "compile", "lint", "reconcile", "config-update"]
+
+[context]
+bootstrap_file = "AGENTS.md"
+workspace_relative = true
+
+[policies]
+requires_run_logging = true
+reconcile_after_direct_write = true

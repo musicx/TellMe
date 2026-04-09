@@ -1,0 +1,35 @@
+[project]
+name = "TellMe"
+version = "0.1.0"
+mode = "hybrid-orchestrator"
+primary_vault = "primary_vault"
+default_host = "codex"
+
+[layout]
+raw_dir = "raw"
+staging_dir = "staging"
+state_dir = "state"
+runs_dir = "runs"
+vault_dir = "vault"
+templates_dir = "templates"
+hosts_dir = "hosts"
+
+[commands]
+enabled = ["init", "ingest", "compile", "query", "lint", "reconcile"]
+
+[wiki]
+index_page = "index.md"
+log_page = "log.md"
+attachments_dir = "assets"
+use_wikilinks = true
+frontmatter_required = true
+
+[obsidian]
+viewer_only = true
+graph_friendly = true
+dataview_compatible = true
+
+[defaults]
+publish_policy = "balanced"
+reconcile_policy = "preserve-human-edits"
+model_policy = "host-routed"

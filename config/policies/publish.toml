@@ -1,0 +1,14 @@
+[policy]
+name = "balanced"
+
+[publish]
+default_mode = "mixed"
+direct_publish_risk_levels = ["low"]
+staging_risk_levels = ["medium", "high"]
+require_source_attribution = true
+require_frontmatter = true
+
+[query_writeback]
+enabled = true
+default_target = "vault/queries"
+auto_publish = false

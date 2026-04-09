@@ -1,0 +1,12 @@
+[policy]
+name = "preserve-human-edits"
+
+[reconcile]
+scan_vault = true
+scan_staging = true
+preserve_human_edits = true
+silent_overwrite = false
+generate_merge_candidates = true
+update_link_graph = true
+update_page_hashes = true
+require_run_logging = true

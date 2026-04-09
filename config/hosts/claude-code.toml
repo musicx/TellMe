@@ -1,0 +1,14 @@
+[host]
+name = "claude-code"
+enabled = true
+mode = "guided"
+can_write_vault = true
+preferred_tasks = ["compile", "query", "lint", "reconcile"]
+
+[context]
+bootstrap_file = "CLAUDE.md"
+workspace_relative = true
+
+[policies]
+requires_run_logging = true
+reconcile_after_direct_write = true
