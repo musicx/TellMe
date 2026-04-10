@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TellMe Host Task",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "command",
+    "run_id",
+    "host",
+    "allowed_read_roots",
+    "allowed_write_roots",
+    "inputs",
+    "expected_output"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "command": { "type": "string" },
+    "run_id": { "type": "string" },
+    "host": { "enum": ["claude-code", "codex", "opencode"] },
+    "allowed_read_roots": { "type": "array", "items": { "type": "string" } },
+    "allowed_write_roots": { "type": "array", "items": { "type": "string" } },
+    "inputs": { "type": "array", "items": { "type": "string" } },
+    "expected_output": { "type": "string" }
+  }
+}

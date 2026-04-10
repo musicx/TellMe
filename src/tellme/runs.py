@@ -13,6 +13,8 @@ class RunStatus(StrEnum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    PARTIAL = "partial"
+    CANCELLED = "cancelled"
 
 
 @dataclass(frozen=True)
@@ -86,13 +88,36 @@ class RunStore:
         payload = json.loads((self.runs_dir / run_id / "run.json").read_text(encoding="utf-8"))
         return RunRecord.from_dict(payload)
 
+    def host_tasks_dir(self, run_id: str) -> Path:
+        return self.runs_dir / run_id / "host-tasks"
+
+    def artifacts_dir(self, run_id: str) -> Path:
+        return self.runs_dir / run_id / "artifacts"
+
     def _write(self, run: RunRecord) -> None:
         run_dir = self.runs_dir / run.run_id
         run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "host-tasks").mkdir(exist_ok=True)
+        (run_dir / "artifacts").mkdir(exist_ok=True)
+        input_path = run_dir / "input.json"
+        if not input_path.exists():
+            input_path.write_text(
+                json.dumps(run.inputs, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        diagnostics_path = run_dir / "diagnostics.md"
+        if not diagnostics_path.exists():
+            diagnostics_path.write_text("", encoding="utf-8")
         (run_dir / "run.json").write_text(
             json.dumps(run.to_dict(), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+
+    def append_diagnostic(self, run_id: str, message: str) -> None:
+        diagnostics_path = self.runs_dir / run_id / "diagnostics.md"
+        diagnostics_path.parent.mkdir(parents=True, exist_ok=True)
+        existing = diagnostics_path.read_text(encoding="utf-8") if diagnostics_path.exists() else ""
+        diagnostics_path.write_text(existing + message + "\n", encoding="utf-8")
 
 
 def _new_run_id(command: str) -> str:

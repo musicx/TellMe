@@ -1,0 +1,318 @@
+{
+  "plan_id": "2026-04-10-tellme-orchestrator-foundation",
+  "plan_path": "docs/plans/2026-04-10-tellme-orchestrator-foundation-plan.md",
+  "requirements_path": "docs/tellme-design.md",
+  "design_path": "docs/designs/2026-04-10-tellme-optimization-design.md",
+  "design_approval_path": "docs/approvals/2026-04-10-tellme-optimization-design-approval.md",
+  "package_approval_path": "docs/approvals/2026-04-10-tellme-orchestrator-foundation-package-approval.md",
+  "status": "completed",
+  "created_at": "2026-04-10",
+  "updated_at": "2026-04-10",
+  "phases": [
+    {
+      "id": "phase-1",
+      "title": "Runtime Foundation",
+      "goal": "Establish deterministic project/config resolution and auditable run execution boundaries.",
+      "status": "completed",
+      "depends_on": [],
+      "tasks": [
+        {
+          "id": "task-1",
+          "title": "Project Resolution And Config Loading",
+          "goal": "Commands can find project root, load TOML config, and resolve machine paths.",
+          "status": "completed",
+          "depends_on": [],
+          "files_in_scope": [
+            "src/tellme/config.py",
+            "src/tellme/resolver.py",
+            "src/tellme/cli.py",
+            "src/tellme/project.py",
+            "tests/test_config.py",
+            "tests/test_cli.py"
+          ],
+          "out_of_scope": [
+            "Global user config",
+            "Model-provider integration"
+          ],
+          "constraints": [
+            "Do not guess between multiple possible project roots.",
+            "Do not overwrite existing user config silently."
+          ],
+          "expected_outputs": [
+            "Project runtime context loader",
+            "CLI --project support or equivalent explicit project resolution"
+          ],
+          "verification": [
+            "python -m pytest tests/test_config.py tests/test_cli.py -q"
+          ],
+          "acceptance_criteria": [
+            "Commands resolve project context from cwd or explicit project path.",
+            "Missing project/config errors are clear and non-mutating."
+          ],
+          "completion_evidence": [
+            "python -m pytest tests/test_config.py tests/test_cli.py -q -> 7 passed in 1.37s",
+            "python -m pytest tests -q -> 10 passed in 1.23s"
+          ],
+          "blockers": [],
+          "notes": [
+            "Execution note: test-first"
+          ]
+        },
+        {
+          "id": "task-2",
+          "title": "Run Lifecycle, Audit Directory, And Locking",
+          "goal": "Run records match the approved directory shape and mutating commands have a concurrency stance.",
+          "status": "completed",
+          "depends_on": [
+            "task-1"
+          ],
+          "files_in_scope": [
+            "src/tellme/runs.py",
+            "src/tellme/locks.py",
+            "src/tellme/workflow.py",
+            "src/tellme/cli.py",
+            "tests/test_runs.py",
+            "tests/test_workflow.py"
+          ],
+          "out_of_scope": [
+            "Daemonized scheduler",
+            "Distributed locking"
+          ],
+          "constraints": [
+            "Run record must be written before command mutation.",
+            "Locking must be local and file-backed."
+          ],
+          "expected_outputs": [
+            "Run directories with run.json, input.json, diagnostics.md, host-tasks, artifacts",
+            "Local project lock for mutating commands"
+          ],
+          "verification": [
+            "python -m pytest tests/test_runs.py tests/test_workflow.py -q"
+          ],
+          "acceptance_criteria": [
+            "Partial and cancelled run statuses are supported.",
+            "Concurrent mutating command attempts have explicit failure behavior."
+          ],
+          "completion_evidence": [
+            "python -m pytest tests/test_runs.py tests/test_workflow.py -q -> 6 passed in 0.11s",
+            "python -m pytest tests -q -> 16 passed in 1.48s"
+          ],
+          "blockers": [],
+          "notes": [
+            "Execution note: test-first"
+          ]
+        },
+        {
+          "id": "task-3",
+          "title": "Manifest Schema Evolution And Atomic State Writes",
+          "goal": "State manifest becomes versioned, richer, and safer to persist.",
+          "status": "completed",
+          "depends_on": [
+            "task-1",
+            "task-2"
+          ],
+          "files_in_scope": [
+            "src/tellme/state.py",
+            "src/tellme/files.py",
+            "tests/test_state_runs.py",
+            "tests/test_state_schema.py"
+          ],
+          "out_of_scope": [
+            "SQLite",
+            "Full migration framework beyond current schema needs"
+          ],
+          "constraints": [
+            "Manifest paths must be project-relative POSIX paths.",
+            "Writes should be atomic."
+          ],
+          "expected_outputs": [
+            "Versioned manifest schema",
+            "Atomic JSON write helper"
+          ],
+          "verification": [
+            "python -m pytest tests/test_state_runs.py tests/test_state_schema.py -q"
+          ],
+          "acceptance_criteria": [
+            "Manifest includes schema_version, sources, pages, links, and indexes.",
+            "Existing minimal manifest handling is controlled."
+          ],
+          "completion_evidence": [
+            "python -m pytest tests/test_state_runs.py tests/test_state_schema.py -q -> 6 passed in 0.13s",
+            "python -m pytest tests -q -> 19 passed in 1.73s"
+          ],
+          "blockers": [],
+          "notes": [
+            "Execution note: test-first"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "title": "First Useful Workflows",
+      "goal": "Add source ingest, static lint, and reconcile behavior without LLM dependencies.",
+      "status": "completed",
+      "depends_on": [
+        "phase-1"
+      ],
+      "tasks": [
+        {
+          "id": "task-4",
+          "title": "Ingest Workflow V1",
+          "goal": "File sources can be copied into raw, hashed, registered, and audited.",
+          "status": "completed",
+          "depends_on": [
+            "task-1",
+            "task-2",
+            "task-3"
+          ],
+          "files_in_scope": [
+            "src/tellme/ingest.py",
+            "src/tellme/cli.py",
+            "src/tellme/state.py",
+            "tests/test_ingest.py",
+            "tests/test_cli.py"
+          ],
+          "out_of_scope": [
+            "Deep synthesis",
+            "URL fetching",
+            "LLM analysis"
+          ],
+          "constraints": [
+            "External file inputs copy into raw by default.",
+            "Existing raw files are not overwritten silently."
+          ],
+          "expected_outputs": [
+            "tellme ingest <path>",
+            "Registered source records linked to run id"
+          ],
+          "verification": [
+            "python -m pytest tests/test_ingest.py tests/test_cli.py -q"
+          ],
+          "acceptance_criteria": [
+            "External markdown file is copied into raw and registered.",
+            "Missing source path fails clearly."
+          ],
+          "completion_evidence": [
+            "python -m pytest tests/test_ingest.py tests/test_cli.py -q -> 7 passed in 2.46s",
+            "python -m pytest tests -q -> 22 passed in 2.66s"
+          ],
+          "blockers": [],
+          "notes": [
+            "Execution note: test-first"
+          ]
+        },
+        {
+          "id": "task-5",
+          "title": "Static Lint And Reconcile Foundation",
+          "goal": "Vault health and drift can be inspected without LLM calls.",
+          "status": "completed",
+          "depends_on": [
+            "task-1",
+            "task-2",
+            "task-3"
+          ],
+          "files_in_scope": [
+            "src/tellme/markdown.py",
+            "src/tellme/linting.py",
+            "src/tellme/reconcile.py",
+            "src/tellme/cli.py",
+            "src/tellme/state.py",
+            "tests/test_linting.py",
+            "tests/test_reconcile.py",
+            "tests/test_cli.py"
+          ],
+          "out_of_scope": [
+            "LLM contradiction detection",
+            "Automatic overwrite of human edits"
+          ],
+          "constraints": [
+            "Reconcile must not overwrite published human edits.",
+            "Conflict output must go to staging or run artifacts."
+          ],
+          "expected_outputs": [
+            "tellme lint static checks",
+            "tellme reconcile drift detection"
+          ],
+          "verification": [
+            "python -m pytest tests/test_linting.py tests/test_reconcile.py tests/test_cli.py -q"
+          ],
+          "acceptance_criteria": [
+            "Missing frontmatter and broken wikilinks are reported.",
+            "Modified published page is detected without overwrite."
+          ],
+          "completion_evidence": [
+            "static lint checkpoint: python -m pytest tests/test_linting.py tests/test_cli.py -q -> 7 passed in 1.49s",
+            "static lint checkpoint: python -m pytest tests -q -> 25 passed in 2.32s",
+            "python -m pytest tests/test_linting.py tests/test_reconcile.py tests/test_cli.py -q -> 8 passed in 1.46s",
+            "python -m pytest tests -q -> 26 passed in 2.34s",
+            "post-review fix: python -m pytest tests/test_linting.py tests/test_reconcile.py tests/test_cli.py -q -> 9 passed in 1.95s",
+            "post-review fix: python -m pytest tests -q -> 30 passed in 2.83s"
+          ],
+          "blockers": [],
+          "notes": [
+            "Execution note: test-first"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "title": "Host Exchange Protocol",
+      "goal": "Define the first stable versioned task/result JSON protocol for host-assisted workflows.",
+      "status": "completed",
+      "depends_on": [
+        "phase-1"
+      ],
+      "tasks": [
+        {
+          "id": "task-6",
+          "title": "Host Task And Result Artifact Protocol",
+          "goal": "Claude Code, Codex, and OpenCode can share versioned file-backed handoff artifacts.",
+          "status": "completed",
+          "depends_on": [
+            "task-1",
+            "task-2",
+            "task-3"
+          ],
+          "files_in_scope": [
+            "src/tellme/hosts.py",
+            "src/tellme/runs.py",
+            "templates/host-task.schema.json",
+            "templates/host-result.schema.json",
+            "tests/test_hosts.py",
+            "tests/test_runs.py"
+          ],
+          "out_of_scope": [
+            "Calling host CLIs",
+            "Provider SDK integrations"
+          ],
+          "constraints": [
+            "Every host task/result includes schema_version.",
+            "Task packets declare allowed read/write roots."
+          ],
+          "expected_outputs": [
+            "Host task dataclass/schema",
+            "Host result dataclass/schema",
+            "RunStore helpers for host task/result paths"
+          ],
+          "verification": [
+            "python -m pytest tests/test_hosts.py tests/test_runs.py -q"
+          ],
+          "acceptance_criteria": [
+            "Valid host task packets can be written and loaded.",
+            "Invalid host results are rejected before consumption."
+          ],
+          "completion_evidence": [
+            "python -m pytest tests/test_hosts.py tests/test_runs.py -q -> 6 passed in 0.10s",
+            "python -m pytest tests -q -> 29 passed in 2.84s"
+          ],
+          "blockers": [],
+          "notes": [
+            "Execution note: test-first"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TellMe Host Result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "host",
+    "run_id",
+    "output_path",
+    "source_references"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "status": { "enum": ["succeeded", "failed", "partial"] },
+    "host": { "enum": ["claude-code", "codex", "opencode"] },
+    "run_id": { "type": "string" },
+    "output_path": { "type": "string" },
+    "source_references": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "confidence": { "type": "string" },
+    "errors": { "type": "array", "items": { "type": "string" } }
+  }
+}
