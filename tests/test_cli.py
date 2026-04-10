@@ -70,3 +70,23 @@ def test_workflow_command_fails_outside_project(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "not inside a TellMe project" in result.stderr
+
+
+def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nAlpha content for TellMe.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+
+    compile_result = run_cli("--project", str(project_root), "compile", cwd=tmp_path)
+
+    assert compile_result.returncode == 0, compile_result.stderr
+    assert "tellme compile: published 1 page(s)" in compile_result.stdout
+    assert "implementation pending" not in compile_result.stdout
+
+    query_result = run_cli("--project", str(project_root), "query", "alpha", cwd=tmp_path)
+
+    assert query_result.returncode == 0, query_result.stderr
+    assert "tellme query: wrote runs/" in query_result.stdout
+    assert "implementation pending" not in query_result.stdout

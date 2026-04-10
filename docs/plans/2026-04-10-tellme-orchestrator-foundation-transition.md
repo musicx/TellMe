@@ -23,7 +23,7 @@
 
 ## Artifacts Relied On
 
-- Path: `docs/tellme-design.md`
+- Path: `docs/designs/2026-04-09-tellme-intital-design.md`
   - Why it mattered: Original requirements and architecture.
 - Path: `docs/designs/2026-04-10-tellme-optimization-design.md`
   - Why it mattered: Approved detailed design.

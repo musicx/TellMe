@@ -140,6 +140,9 @@ class ProjectState:
     def get_source(self, path: str) -> SourceRecord:
         return SourceRecord.from_dict(self._payload["sources"][path])
 
+    def sources(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("sources", {}))
+
     def upsert_page(self, page: PageRecord) -> None:
         self._payload.setdefault("pages", {})[page.path] = page.to_dict()
         self._save()

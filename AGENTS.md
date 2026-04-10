@@ -43,10 +43,10 @@ TellMe 是一个混合式 LLM-wiki 编排器：
 
 ## 文档入口
 
-- 设计文档：`docs/tellme-design.md`
+- 设计文档：`docs/designs/2026-04-09-tellme-intital-design.md`
 - 参考实现分析：`docs/analysis/overview.md`
 - 项目配置：`config/project.toml`
 
 ## 当前阶段
 
-当前仓库仍处于设计与骨架阶段。若宿主开始实现代码，应先遵循 `docs/tellme-design.md` 中的边界，不要绕开既定目录分层与配置模型。
+当前仓库处于本地 orchestrator V1 阶段。六个正式命令已有基础行为，但真实 LLM synthesis、宿主 CLI 自动调用、完整发布策略和深度 reconcile 仍是后续能力。若宿主继续实现代码，应先遵循 `docs/designs/2026-04-09-tellme-intital-design.md` 中的边界，不要绕开既定目录分层与配置模型。

@@ -3,7 +3,7 @@ title: TellMe Orchestrator Foundation Plan
 type: feat
 status: completed
 date: 2026-04-10
-origin: docs/tellme-design.md
+origin: docs/designs/2026-04-09-tellme-intital-design.md
 design: docs/designs/2026-04-10-tellme-optimization-design.md
 design_approval: docs/approvals/2026-04-10-tellme-optimization-design-approval.md
 execution_json: docs/plans/2026-04-10-tellme-orchestrator-foundation-plan.execution.json

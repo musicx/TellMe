@@ -2,7 +2,7 @@
 title: TellMe Optimization Design
 status: draft
 date: 2026-04-10
-origin: docs/tellme-design.md
+origin: docs/designs/2026-04-09-tellme-intital-design.md
 owner_mode: engineering-led
 ---
 

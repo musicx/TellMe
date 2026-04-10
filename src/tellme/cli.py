@@ -6,10 +6,13 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .compiler import compile_sources
 from .config import load_runtime
+from .hosts import KNOWN_HOSTS
 from .ingest import ingest_file
 from .linting import lint_vault
 from .project import init_project
+from .query import query_vault
 from .reconcile import reconcile_vault
 from .resolver import ProjectNotFoundError
 from .runs import RunStore
@@ -27,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"tellme {__version__}")
     parser.add_argument("--project", help="TellMe project root")
     parser.add_argument("--machine", help="Machine config name")
+    parser.add_argument("--host", choices=sorted(KNOWN_HOSTS), default="codex", help="Host identity")
     subparsers = parser.add_subparsers(dest="command")
 
     init_parser = subparsers.add_parser("init", help="Initialize a TellMe project")
@@ -48,9 +52,17 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile_parser = subparsers.add_parser("reconcile", help="Reconcile vault drift into state")
     reconcile_parser.set_defaults(handler=_handle_reconcile)
 
-    for command in ("compile", "query"):
-        command_parser = subparsers.add_parser(command, help=f"{command} workflow placeholder")
-        command_parser.set_defaults(handler=_handle_not_implemented)
+    compile_parser = subparsers.add_parser("compile", help="Compile registered sources into vault pages")
+    compile_parser.set_defaults(handler=_handle_compile)
+
+    query_parser = subparsers.add_parser("query", help="Query published vault content")
+    query_parser.add_argument("question")
+    query_parser.add_argument(
+        "--stage",
+        action="store_true",
+        help="Write a reviewable query answer candidate under staging/queries/",
+    )
+    query_parser.set_defaults(handler=_handle_query)
 
     return parser
 
@@ -62,28 +74,22 @@ def _handle_init(args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_not_implemented(args: argparse.Namespace) -> int:
+def _load_runtime_from_args(args: argparse.Namespace):
     try:
-        runtime = load_runtime(
+        return load_runtime(
             project_root=Path(args.project).expanduser().resolve() if args.project else None,
             machine=args.machine,
         )
     except ProjectNotFoundError as exc:
         print(str(exc), file=sys.stderr)
-        return 2
-    print(
-        f"tellme {args.command}: command skeleton is present for {runtime.project_root}; "
-        "implementation pending."
-    )
-    return 0
+        return None
 
 
 def _handle_ingest(args: argparse.Namespace) -> int:
     try:
-        runtime = load_runtime(
-            project_root=Path(args.project).expanduser().resolve() if args.project else None,
-            machine=args.machine,
-        )
+        runtime = _load_runtime_from_args(args)
+        if runtime is None:
+            return 2
         runs = RunStore(runtime.runs_dir)
 
         def operation(run):
@@ -94,11 +100,11 @@ def _handle_ingest(args: argparse.Namespace) -> int:
             project_root=runtime.project_root,
             runs=runs,
             command="ingest",
-            host="codex",
+            host=args.host,
             inputs={"source": args.source},
             operation=operation,
         )
-    except (ProjectNotFoundError, FileNotFoundError) as exc:
+    except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
@@ -107,13 +113,8 @@ def _handle_ingest(args: argparse.Namespace) -> int:
 
 
 def _handle_lint(args: argparse.Namespace) -> int:
-    try:
-        runtime = load_runtime(
-            project_root=Path(args.project).expanduser().resolve() if args.project else None,
-            machine=args.machine,
-        )
-    except ProjectNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
+    runtime = _load_runtime_from_args(args)
+    if runtime is None:
         return 2
 
     runs = RunStore(runtime.runs_dir)
@@ -136,7 +137,7 @@ def _handle_lint(args: argparse.Namespace) -> int:
         project_root=runtime.project_root,
         runs=runs,
         command="lint",
-        host="codex",
+        host=args.host,
         inputs={},
         operation=operation,
     )
@@ -150,31 +151,91 @@ def _handle_lint(args: argparse.Namespace) -> int:
 
 
 def _handle_reconcile(args: argparse.Namespace) -> int:
-    try:
-        runtime = load_runtime(
-            project_root=Path(args.project).expanduser().resolve() if args.project else None,
-            machine=args.machine,
-        )
-        runs = RunStore(runtime.runs_dir)
-
-        def operation(run):
-            result = reconcile_vault(runtime=runtime, run_id=run.run_id, host="codex")
-            return {"changed_pages": result.changed_pages}
-
-        run = run_workflow(
-            project_root=runtime.project_root,
-            runs=runs,
-            command="reconcile",
-            host="codex",
-            inputs={},
-            operation=operation,
-        )
-    except ProjectNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
+    runtime = _load_runtime_from_args(args)
+    if runtime is None:
         return 2
+    runs = RunStore(runtime.runs_dir)
+
+    def operation(run):
+        result = reconcile_vault(runtime=runtime, run_id=run.run_id, host=args.host)
+        return {"changed_pages": result.changed_pages}
+
+    run = run_workflow(
+        project_root=runtime.project_root,
+        runs=runs,
+        command="reconcile",
+        host=args.host,
+        inputs={},
+        operation=operation,
+    )
 
     changed_pages = run.outputs.get("changed_pages", [])
     print(f"tellme reconcile: {len(changed_pages)} changed page(s)")
+    return 0
+
+
+def _handle_compile(args: argparse.Namespace) -> int:
+    runtime = _load_runtime_from_args(args)
+    if runtime is None:
+        return 2
+    runs = RunStore(runtime.runs_dir)
+
+    def operation(run):
+        result = compile_sources(runtime=runtime, run_id=run.run_id, host=args.host)
+        return {
+            "published_pages": result.published_pages,
+            "staged_pages": result.staged_pages,
+            "host_task_path": result.host_task_path,
+            "artifact_path": result.artifact_path,
+        }
+
+    run = run_workflow(
+        project_root=runtime.project_root,
+        runs=runs,
+        command="compile",
+        host=args.host,
+        inputs={},
+        operation=operation,
+    )
+    published_pages = run.outputs.get("published_pages", [])
+    print(f"tellme compile: published {len(published_pages)} page(s)")
+    for page in published_pages:
+        print(page)
+    return 0
+
+
+def _handle_query(args: argparse.Namespace) -> int:
+    runtime = _load_runtime_from_args(args)
+    if runtime is None:
+        return 2
+    runs = RunStore(runtime.runs_dir)
+
+    def operation(run):
+        result = query_vault(
+            runtime=runtime,
+            question=args.question,
+            run_id=run.run_id,
+            host=args.host,
+            stage=args.stage,
+        )
+        return {
+            "answer_path": result.answer_path,
+            "matched_pages": result.matched_pages,
+            "host_task_path": result.host_task_path,
+            "staged_path": result.staged_path,
+        }
+
+    run = run_workflow(
+        project_root=runtime.project_root,
+        runs=runs,
+        command="query",
+        host=args.host,
+        inputs={"question": args.question, "stage": args.stage},
+        operation=operation,
+    )
+    print(f"tellme query: wrote {run.outputs['answer_path']}")
+    if run.outputs.get("staged_path"):
+        print(f"tellme query: staged {run.outputs['staged_path']}")
     return 0
 
 
