@@ -69,3 +69,28 @@ def test_compile_records_file_hash_that_reconcile_does_not_treat_as_drift(tmp_pa
     result = reconcile_vault(runtime=runtime, run_id=reconcile_run.run_id, host="codex")
 
     assert result.changed_pages == []
+
+
+def test_compile_stages_source_summary_when_publish_policy_disables_direct_publish(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    (project_root / "config" / "policies" / "publish.toml").write_text(
+        "[publish]\nsource_summary_direct_publish = false\n",
+        encoding="utf-8",
+    )
+    runtime = load_runtime(project_root=project_root)
+    source = tmp_path / "outside.md"
+    source.write_text("# Outside\n\nNeeds review.", encoding="utf-8")
+    runs = RunStore(runtime.runs_dir)
+    ingest_run = runs.start("ingest", "codex")
+    ingest_file(runtime, source, ingest_run.run_id)
+    compile_run = runs.start("compile", "codex")
+
+    result = compile_sources(runtime=runtime, run_id=compile_run.run_id, host="codex")
+
+    assert result.published_pages == []
+    assert result.staged_pages == ["staging/sources/outside.md"]
+    assert not (project_root / "vault" / "sources" / "outside.md").exists()
+    assert (project_root / "staging" / "sources" / "outside.md").is_file()
+    state = ProjectState.load(runtime.state_dir)
+    assert state.get_page("staging/sources/outside.md").status == ContentStatus.STAGED

@@ -28,6 +28,10 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
         if ContentStatus(str(payload["status"])) in {ContentStatus.REGISTERED, ContentStatus.ANALYZED}
     ]
     published_pages: list[str] = []
+    staged_pages: list[str] = []
+    direct_publish = bool(
+        runtime.policies.get("publish", {}).get("source_summary_direct_publish", True)
+    )
 
     task = HostTask(
         command="compile",
@@ -44,7 +48,8 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
         raw_path = runtime.project_root / (source.raw_path or source.path)
         if not raw_path.is_file():
             continue
-        page_path = runtime.vault_dir / "sources" / f"{_slug(raw_path.stem)}.md"
+        base_dir = runtime.vault_dir if direct_publish else runtime.staging_dir
+        page_path = base_dir / "sources" / f"{_slug(raw_path.stem)}.md"
         page_path.parent.mkdir(parents=True, exist_ok=True)
         content = _source_summary_page(
             title=raw_path.stem,
@@ -52,6 +57,7 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
             source_text=raw_path.read_text(encoding="utf-8"),
             host=host,
             run_id=run_id,
+            status="published" if direct_publish else "staged",
         )
         page_path.write_text(content, encoding="utf-8")
         page_rel = _relative(runtime.project_root, page_path)
@@ -60,12 +66,13 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
             PageRecord(
                 path=page_rel,
                 page_type="source_summary",
-                status=ContentStatus.PUBLISHED,
+                status=ContentStatus.PUBLISHED if direct_publish else ContentStatus.STAGED,
                 sha256=page_hash,
                 sources=[source.path],
                 last_host=host,
                 last_run_id=run_id,
-                published_path=page_rel,
+                published_path=page_rel if direct_publish else None,
+                staged_path=page_rel if not direct_publish else None,
             )
         )
         state.upsert_source(
@@ -80,7 +87,10 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
                 registration_run_id=source.registration_run_id,
             )
         )
-        published_pages.append(page_rel)
+        if direct_publish:
+            published_pages.append(page_rel)
+        else:
+            staged_pages.append(page_rel)
 
     artifact_path = runtime.runs_dir / run_id / "artifacts" / "compile-result.json"
     atomic_write_json(
@@ -90,13 +100,13 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
             "run_id": run_id,
             "host": host,
             "published_pages": published_pages,
-            "staged_pages": [],
+            "staged_pages": staged_pages,
         },
     )
 
     return CompileResult(
         published_pages=published_pages,
-        staged_pages=[],
+        staged_pages=staged_pages,
         host_task_path=_relative(runtime.project_root, task_path),
         artifact_path=_relative(runtime.project_root, artifact_path),
     )
@@ -108,12 +118,13 @@ def _source_summary_page(
     source_text: str,
     host: str,
     run_id: str,
+    status: str,
 ) -> str:
     excerpt = source_text.strip()[:4000]
     return (
         "---\n"
         "page_type: source_summary\n"
-        "status: published\n"
+        f"status: {status}\n"
         f"sources:\n  - {source_path}\n"
         f"created_at: {_utc_now()}\n"
         f"updated_at: {_utc_now()}\n"

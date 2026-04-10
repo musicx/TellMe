@@ -90,3 +90,22 @@ def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path) -> None:
     assert query_result.returncode == 0, query_result.stderr
     assert "tellme query: wrote runs/" in query_result.stdout
     assert "implementation pending" not in query_result.stdout
+
+
+def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nNeeds review.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    (project_root / "config" / "policies" / "publish.toml").write_text(
+        "[publish]\nsource_summary_direct_publish = false\n",
+        encoding="utf-8",
+    )
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+
+    result = run_cli("--project", str(project_root), "compile", cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert "tellme compile: published 0 page(s)" in result.stdout
+    assert "tellme compile: staged 1 page(s)" in result.stdout
+    assert "staging/sources/source.md" in result.stdout

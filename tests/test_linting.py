@@ -6,6 +6,8 @@ from tellme.config import load_runtime
 from tellme.linting import lint_vault
 from tellme.markdown import extract_wikilinks, parse_frontmatter
 from tellme.project import init_project
+from tellme.runs import RunStore
+from tellme.state import ContentStatus, PageRecord, ProjectState
 
 
 def test_parse_frontmatter_and_extract_wikilinks() -> None:
@@ -54,3 +56,53 @@ def test_cli_lint_creates_run_record(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     run_dirs = list((project_root / "runs").glob("*/run.json"))
     assert len(run_dirs) == 1
+
+
+def test_lint_vault_reports_state_page_hash_drift(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    page = project_root / "vault" / "Page.md"
+    page.write_text(
+        "---\ntitle: Page\nsources: [raw/page.md]\n---\nOriginal.",
+        encoding="utf-8",
+    )
+    state = ProjectState.load(project_root / "state")
+    state.upsert_page(
+        PageRecord(
+            path="vault/Page.md",
+            page_type="note",
+            status=ContentStatus.PUBLISHED,
+            sha256="not-the-current-hash",
+            sources=["raw/page.md"],
+            last_host="codex",
+            last_run_id="run-1",
+            published_path="vault/Page.md",
+        )
+    )
+    runtime = load_runtime(project_root=project_root, machine="test-pc")
+
+    result = lint_vault(runtime)
+
+    assert any(issue.issue_type == "page_hash_drift" for issue in result.issues)
+
+
+def test_lint_vault_reports_running_runs(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, machine="test-pc")
+    RunStore(runtime.runs_dir).start("compile", "codex")
+
+    result = lint_vault(runtime)
+
+    assert any(issue.issue_type == "running_run" for issue in result.issues)
+
+
+def test_lint_vault_can_ignore_current_run(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, machine="test-pc")
+    run = RunStore(runtime.runs_dir).start("lint", "codex")
+
+    result = lint_vault(runtime, current_run_id=run.run_id)
+
+    assert not any(issue.issue_type == "running_run" for issue in result.issues)

@@ -79,6 +79,7 @@ def _load_runtime_from_args(args: argparse.Namespace):
         return load_runtime(
             project_root=Path(args.project).expanduser().resolve() if args.project else None,
             machine=args.machine,
+            host=args.host,
         )
     except ProjectNotFoundError as exc:
         print(str(exc), file=sys.stderr)
@@ -120,7 +121,7 @@ def _handle_lint(args: argparse.Namespace) -> int:
     runs = RunStore(runtime.runs_dir)
 
     def operation(run):
-        result = lint_vault(runtime)
+        result = lint_vault(runtime, current_run_id=run.run_id)
         return {
             "issues": [
                 {
@@ -198,8 +199,12 @@ def _handle_compile(args: argparse.Namespace) -> int:
         operation=operation,
     )
     published_pages = run.outputs.get("published_pages", [])
+    staged_pages = run.outputs.get("staged_pages", [])
     print(f"tellme compile: published {len(published_pages)} page(s)")
     for page in published_pages:
+        print(page)
+    print(f"tellme compile: staged {len(staged_pages)} page(s)")
+    for page in staged_pages:
         print(page)
     return 0
 
