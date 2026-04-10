@@ -107,12 +107,36 @@ def stage_graph_candidate(
         staged_relations.append(str(relation_record["id"]))
 
     for conflict in candidate["conflicts"]:
+        conflict_id = str(conflict["id"])
+        page_path = runtime.staging_dir / "conflicts" / f"{_slug(_node_slug_value(conflict_id, conflict_id))}.md"
+        page_path.parent.mkdir(parents=True, exist_ok=True)
+        page_path.write_text(
+            _conflict_page(conflict=conflict, host=host, run_id=run_id),
+            encoding="utf-8",
+        )
+        rel = _relative(runtime.data_root, page_path)
+        sources = _as_str_list(conflict["sources"])
+        page_hash = hashlib.sha256(page_path.read_bytes()).hexdigest()
+        state.upsert_page(
+            PageRecord(
+                path=rel,
+                page_type="conflict",
+                status=ContentStatus.STAGED,
+                sha256=page_hash,
+                sources=sources,
+                last_host=host,
+                last_run_id=run_id,
+                staged_path=rel,
+            )
+        )
         conflict_record = dict(conflict)
         conflict_record["status"] = ContentStatus.STAGED.value
+        conflict_record["staged_path"] = rel
         conflict_record["last_host"] = host
         conflict_record["last_run_id"] = run_id
         state.upsert_conflict(conflict_record)
-        staged_conflicts.append(str(conflict["id"]))
+        staged_pages.append(rel)
+        staged_conflicts.append(conflict_id)
 
     return GraphStageResult(
         staged_pages=staged_pages,
@@ -250,6 +274,37 @@ def _node_page(
         f"{claim_lines or '- No claims staged yet.'}\n\n"
         "## Relations\n\n"
         f"{relation_lines or '- No relations staged yet.'}\n\n"
+        "## Evidence\n\n"
+        f"{evidence_lines}\n"
+    )
+
+
+def _conflict_page(conflict: dict[str, Any], host: str, run_id: str) -> str:
+    now = _utc_now()
+    sources = _as_str_list(conflict["sources"])
+    source_lines = "\n".join(f"  - {source}" for source in sources)
+    evidence_lines = "\n".join(f"- `{source}`" for source in sources)
+    claim_lines = "\n".join(f"- `{claim_id}`" for claim_id in _as_str_list(conflict.get("claim_ids")))
+    explanation = str(conflict.get("explanation", "No explanation candidate provided."))
+    return (
+        "---\n"
+        "page_type: conflict\n"
+        "status: staged\n"
+        f"conflict_id: {conflict['id']}\n"
+        "sources:\n"
+        f"{source_lines}\n"
+        f"created_at: {now}\n"
+        f"updated_at: {now}\n"
+        f"last_host: {host}\n"
+        f"last_run_id: {run_id}\n"
+        "---\n"
+        f"# {conflict['id']}\n\n"
+        "## Summary\n\n"
+        f"{conflict['summary']}\n\n"
+        "## Related Claims\n\n"
+        f"{claim_lines or '- No claim ids provided.'}\n\n"
+        "## Explanation Candidate\n\n"
+        f"{explanation}\n\n"
         "## Evidence\n\n"
         f"{evidence_lines}\n"
     )

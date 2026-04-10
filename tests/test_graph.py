@@ -248,6 +248,90 @@ def test_consume_graph_candidate_stages_entity_under_entities_directory(tmp_path
     assert (runtime.staging_dir / "entities" / "openai.md").is_file()
 
 
+def test_consume_graph_candidate_stages_conflict_page(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nThe article contains a tension worth reviewing.", encoding="utf-8")
+    ingest_run = RunStore(runtime.runs_dir).start("ingest", "codex")
+    ingest_file(runtime, source, ingest_run.run_id)
+    candidate_path = runtime.staging_dir / "graph" / "candidates" / "candidate.json"
+    candidate_path.parent.mkdir(parents=True)
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "knowledge_graph_update",
+                "source_references": ["raw/source.md"],
+                "nodes": [
+                    {
+                        "id": "concept:codex-graph-candidate",
+                        "kind": "concept",
+                        "title": "Codex Graph Candidate",
+                        "summary": "Structured candidate output from Codex.",
+                        "sources": ["raw/source.md"],
+                    }
+                ],
+                "claims": [
+                    {
+                        "id": "claim:one",
+                        "subject": "concept:codex-graph-candidate",
+                        "text": "One claim.",
+                        "sources": ["raw/source.md"],
+                    },
+                    {
+                        "id": "claim:two",
+                        "subject": "concept:codex-graph-candidate",
+                        "text": "A tensioned claim.",
+                        "sources": ["raw/source.md"],
+                    },
+                ],
+                "relations": [],
+                "conflicts": [
+                    {
+                        "id": "conflict:codex-candidate-tension",
+                        "summary": "The two claims require human review.",
+                        "claim_ids": ["claim:one", "claim:two"],
+                        "explanation": "They may describe different scopes rather than a hard contradiction.",
+                        "sources": ["raw/source.md"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result_path = runtime.runs_dir / "codex-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "succeeded",
+                "host": "codex",
+                "run_id": "handoff-run",
+                "output_path": "staging/graph/candidates/candidate.json",
+                "source_references": ["raw/source.md"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = consume_codex_result(runtime=runtime, result_path=result_path, consume_run_id="consume-run")
+
+    assert "staging/conflicts/codex-candidate-tension.md" in result.staged_pages
+    conflict_page = runtime.staging_dir / "conflicts" / "codex-candidate-tension.md"
+    assert conflict_page.is_file()
+    conflict_text = conflict_page.read_text(encoding="utf-8")
+    assert "page_type: conflict" in conflict_text
+    assert "conflict_id: conflict:codex-candidate-tension" in conflict_text
+    assert "They may describe different scopes rather than a hard contradiction." in conflict_text
+    state = ProjectState.load(runtime.state_dir)
+    assert state.get_page("staging/conflicts/codex-candidate-tension.md").page_type == "conflict"
+    assert state.conflicts()["conflict:codex-candidate-tension"]["staged_path"] == (
+        "staging/conflicts/codex-candidate-tension.md"
+    )
+
+
 def test_lint_reports_graph_relation_to_missing_node(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")

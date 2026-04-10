@@ -126,12 +126,13 @@ The first graph candidate protocol has now been introduced:
 - `state/manifest.json` gains graph sections for nodes, claims, relations, and conflicts.
 - `lint` checks graph candidates for source attribution and broken node links.
 - `publish --all` publishes reviewed staged concept/entity graph node pages into `vault/`.
+- Graph candidate conflicts are staged as reviewable pages under `staging/conflicts/`.
 
 Remaining implementation work:
 
 - Rich review workflow for selecting, rejecting, or editing individual staged graph updates.
 - Matching/enrichment against existing nodes before staging.
-- Conflict pages under `staging/conflicts/` with explanation candidates.
+- Conflict resolution workflow after `staging/conflicts/` review.
 - Host CLI invocation wrappers for Claude Code, Codex, and OpenCode instead of handoff files only.
 - Deeper reconcile that reads existing Obsidian graph pages back into graph state.
 
