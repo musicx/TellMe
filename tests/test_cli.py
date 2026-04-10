@@ -100,6 +100,23 @@ def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path, monkeypatch)
     assert "implementation pending" not in query_result.stdout
 
 
+def test_cli_query_stage_writes_synthesis_candidate(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nAlpha content for TellMe.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+    run_cli("--project", str(project_root), "compile", cwd=tmp_path)
+
+    query_result = run_cli("--project", str(project_root), "query", "alpha", "--stage", cwd=tmp_path)
+
+    assert query_result.returncode == 0, query_result.stderr
+    assert "tellme query: staged staging/synthesis/alpha.md" in query_result.stdout
+    assert (data_root / "staging" / "synthesis" / "alpha.md").is_file()
+
+
 def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(
     tmp_path: Path,
     monkeypatch,

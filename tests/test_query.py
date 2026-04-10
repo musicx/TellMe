@@ -6,6 +6,7 @@ from tellme.config import load_runtime
 from tellme.project import init_project
 from tellme.query import query_vault
 from tellme.runs import RunStore
+from tellme.state import ProjectState
 
 
 def test_query_reads_vault_first_and_writes_run_artifact(tmp_path: Path) -> None:
@@ -37,7 +38,7 @@ def test_query_reads_vault_first_and_writes_run_artifact(tmp_path: Path) -> None
     assert (runtime.data_root / result.host_task_path).is_file()
 
 
-def test_query_stage_writes_reviewable_candidate_without_publishing(tmp_path: Path) -> None:
+def test_query_stage_writes_synthesis_candidate_without_publishing(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root)
@@ -55,8 +56,38 @@ def test_query_stage_writes_reviewable_candidate_without_publishing(tmp_path: Pa
         stage=True,
     )
 
-    assert result.staged_path == "staging/queries/beta-reusable.md"
+    assert result.staged_path == "staging/synthesis/beta-reusable.md"
     staged = (runtime.data_root / result.staged_path).read_text(encoding="utf-8")
-    assert "page_type: query_answer" in staged
+    assert "page_type: synthesis" in staged
     assert "status: staged" in staged
-    assert not (runtime.vault_dir / "queries" / "beta-reusable.md").exists()
+    assert "question: beta reusable" in staged
+    assert "sources:\n  - vault/beta.md" in staged
+    assert not (runtime.vault_dir / "synthesis" / "beta-reusable.md").exists()
+
+    state = ProjectState.load(runtime.state_dir)
+    synthesis = state.syntheses()["synthesis:beta-reusable"]
+    assert synthesis["question"] == "beta reusable"
+    assert synthesis["sources"] == ["vault/beta.md"]
+    assert synthesis["staged_path"] == "staging/synthesis/beta-reusable.md"
+    page = state.get_page("staging/synthesis/beta-reusable.md")
+    assert page.page_type == "synthesis"
+
+
+def test_query_stage_without_matches_remains_run_artifact_only(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root)
+    run = RunStore(runtime.runs_dir).start("query", "codex")
+
+    result = query_vault(
+        runtime=runtime,
+        question="missing topic",
+        run_id=run.run_id,
+        host="codex",
+        stage=True,
+    )
+
+    assert result.staged_path is None
+    assert result.answer_path == f"runs/{run.run_id}/artifacts/query-answer.md"
+    assert not (runtime.staging_dir / "synthesis").exists()
+    assert ProjectState.load(runtime.state_dir).syntheses() == {}

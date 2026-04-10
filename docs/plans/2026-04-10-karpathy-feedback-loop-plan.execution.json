@@ -37,7 +37,7 @@
     {
       "id": "task-2",
       "title": "Query stage output becomes synthesis/output candidate",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         "task-1"
       ],
@@ -54,7 +54,9 @@
       ],
       "verification": [
         "python -m pytest tests/test_query.py tests/test_cli.py -q"
-      ]
+      ],
+      "completed_at": "2026-04-10",
+      "completion_evidence": "python -m pytest tests/test_query.py tests/test_cli.py -q -> 14 passed"
     },
     {
       "id": "task-3",

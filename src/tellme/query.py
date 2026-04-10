@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import re
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import ProjectRuntime
 from .hosts import HostTask
+from .state import ContentStatus, PageRecord, ProjectState
 
 
 @dataclass(frozen=True)
@@ -41,10 +43,47 @@ def query_vault(
     artifact_path.write_text(answer, encoding="utf-8")
 
     staged_path: Path | None = None
-    if stage:
-        staged_path = runtime.staging_dir / "queries" / f"{_slug(question)}.md"
+    if stage and matches:
+        slug = _slug(question)
+        staged_path = runtime.staging_dir / "synthesis" / f"{slug}.md"
         staged_path.parent.mkdir(parents=True, exist_ok=True)
-        staged_path.write_text(_staged_answer_markdown(answer, host=host, run_id=run_id), encoding="utf-8")
+        matched_paths = [path for path, _score in matches]
+        staged_path.write_text(
+            _staged_synthesis_markdown(
+                answer=answer,
+                question=question,
+                sources=matched_paths,
+                host=host,
+                run_id=run_id,
+            ),
+            encoding="utf-8",
+        )
+        rel = _relative(runtime.data_root, staged_path)
+        state = ProjectState.load(runtime.state_dir)
+        state.upsert_page(
+            PageRecord(
+                path=rel,
+                page_type="synthesis",
+                status=ContentStatus.STAGED,
+                sha256=hashlib.sha256(staged_path.read_bytes()).hexdigest(),
+                sources=matched_paths,
+                last_host=host,
+                last_run_id=run_id,
+                staged_path=rel,
+            )
+        )
+        state.upsert_synthesis(
+            {
+                "id": f"synthesis:{slug}",
+                "title": question,
+                "question": question,
+                "status": ContentStatus.STAGED.value,
+                "sources": matched_paths,
+                "staged_path": rel,
+                "last_host": host,
+                "last_run_id": run_id,
+            }
+        )
 
     return QueryResult(
         answer_path=_relative(runtime.data_root, artifact_path),
@@ -102,17 +141,28 @@ def _relative(root: Path, path: Path) -> str:
     return path.resolve().relative_to(root.resolve()).as_posix()
 
 
-def _staged_answer_markdown(answer: str, host: str, run_id: str) -> str:
+def _staged_synthesis_markdown(
+    answer: str,
+    question: str,
+    sources: list[str],
+    host: str,
+    run_id: str,
+) -> str:
     now = _utc_now()
+    source_lines = "\n".join(f"  - {source}" for source in sources)
     return (
         "---\n"
-        "page_type: query_answer\n"
+        "page_type: synthesis\n"
         "status: staged\n"
+        f"question: {question}\n"
+        "sources:\n"
+        f"{source_lines}\n"
         f"created_at: {now}\n"
         f"updated_at: {now}\n"
         f"last_host: {host}\n"
         f"last_run_id: {run_id}\n"
         "---\n"
+        "# Query Synthesis Candidate\n\n"
         f"{answer}"
     )
 
