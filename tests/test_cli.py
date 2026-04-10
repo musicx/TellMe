@@ -322,6 +322,25 @@ def test_cli_publish_all_publishes_staged_graph_nodes(tmp_path: Path, monkeypatc
     assert (data_root / "vault" / "concepts" / "codex-graph-candidate.md").is_file()
 
 
+def test_cli_publish_all_publishes_staged_query_synthesis(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nAlpha content for TellMe.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+    run_cli("--project", str(project_root), "compile", cwd=tmp_path)
+    run_cli("--project", str(project_root), "query", "alpha", "--stage", cwd=tmp_path)
+
+    published = run_cli("--project", str(project_root), "--host", "codex", "publish", "--all", cwd=tmp_path)
+
+    assert published.returncode == 0, published.stderr
+    assert "tellme publish: published 1 page(s)" in published.stdout
+    assert "vault/synthesis/alpha.md" in published.stdout
+    assert (data_root / "vault" / "synthesis" / "alpha.md").is_file()
+
+
 def test_cli_compile_handoff_requires_codex_host(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)

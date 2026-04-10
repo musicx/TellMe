@@ -11,7 +11,7 @@ from .state import ContentStatus, PageRecord, ProjectState
 
 
 class PublishError(RuntimeError):
-    """Raised when a staged graph page cannot be safely published."""
+    """Raised when a staged page cannot be safely published."""
 
 
 @dataclass(frozen=True)
@@ -67,8 +67,9 @@ def publish_staged_graph(
                 staged_path=page.path,
             )
         )
-        _mark_node_published(
+        _mark_related_record_published(
             state=state,
+            page_type=page.page_type,
             staged_path=page.path,
             published_path=vault_rel,
             host=host,
@@ -92,8 +93,15 @@ def _select_staged_graph_pages(state: ProjectState, staged_path: str | None) -> 
             page
             for page in pages
             if page.status == ContentStatus.STAGED
-            and page.page_type in {"concept", "entity"}
-            and page.path.startswith(("staging/concepts/", "staging/entities/"))
+            and page.page_type in {"concept", "entity", "synthesis", "output"}
+            and page.path.startswith(
+                (
+                    "staging/concepts/",
+                    "staging/entities/",
+                    "staging/synthesis/",
+                    "staging/outputs/",
+                )
+            )
         ],
         key=lambda page: page.path,
     )
@@ -130,19 +138,43 @@ def _replace_frontmatter_scalar(text: str, key: str, value: str) -> str:
     return text[:end] + f"\n{key}: {value}" + text[end:]
 
 
-def _mark_node_published(
+def _mark_related_record_published(
     state: ProjectState,
+    page_type: str,
     staged_path: str,
     published_path: str,
     host: str,
     run_id: str,
 ) -> None:
+    if page_type == "synthesis":
+        _mark_dict_record_published(state.syntheses(), state.upsert_synthesis, staged_path, published_path, host, run_id)
+        return
+    if page_type == "output":
+        _mark_dict_record_published(state.outputs(), state.upsert_output, staged_path, published_path, host, run_id)
+        return
     for node in state.nodes().values():
         if node.get("staged_path") != staged_path:
             continue
-        updated = dict(node)
-        updated["status"] = ContentStatus.PUBLISHED.value
-        updated["published_path"] = published_path
-        updated["last_host"] = host
-        updated["last_run_id"] = run_id
-        state.upsert_node(updated)
+        _publish_record(node, published_path, host, run_id, state.upsert_node)
+
+
+def _mark_dict_record_published(
+    records: dict[str, dict],
+    upsert,
+    staged_path: str,
+    published_path: str,
+    host: str,
+    run_id: str,
+) -> None:
+    for record in records.values():
+        if record.get("staged_path") == staged_path:
+            _publish_record(record, published_path, host, run_id, upsert)
+
+
+def _publish_record(record: dict, published_path: str, host: str, run_id: str, upsert) -> None:
+    updated = dict(record)
+    updated["status"] = ContentStatus.PUBLISHED.value
+    updated["published_path"] = published_path
+    updated["last_host"] = host
+    updated["last_run_id"] = run_id
+    upsert(updated)

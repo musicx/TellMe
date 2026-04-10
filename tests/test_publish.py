@@ -8,8 +8,9 @@ from tellme.config import load_runtime
 from tellme.ingest import ingest_file
 from tellme.project import init_project
 from tellme.publish import PublishError, publish_staged_graph
+from tellme.query import query_vault
 from tellme.runs import RunStore
-from tellme.state import ContentStatus, ProjectState
+from tellme.state import ContentStatus, PageRecord, ProjectState
 
 
 def test_publish_staged_graph_page_to_vault_and_updates_state(tmp_path: Path) -> None:
@@ -71,6 +72,101 @@ def test_publish_rejects_non_staging_path(tmp_path: Path) -> None:
         assert "staging/" in str(exc)
     else:
         raise AssertionError("publish should reject non-staging paths")
+
+
+def test_publish_all_publishes_staged_synthesis_page(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    vault_source = runtime.vault_dir / "concepts" / "alpha.md"
+    vault_source.parent.mkdir(parents=True)
+    vault_source.write_text(
+        "---\npage_type: concept\nsources:\n  - raw/source.md\n---\n# Alpha\n\nReusable alpha context.",
+        encoding="utf-8",
+    )
+    run = RunStore(runtime.runs_dir).start("query", "codex")
+    query_vault(runtime=runtime, question="alpha context", run_id=run.run_id, host="codex", stage=True)
+
+    result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
+
+    assert result.published_pages == ["vault/synthesis/alpha-context.md"]
+    assert (runtime.vault_dir / "synthesis" / "alpha-context.md").is_file()
+    state = ProjectState.load(runtime.state_dir)
+    assert state.get_page("vault/synthesis/alpha-context.md").status == ContentStatus.PUBLISHED
+    assert state.syntheses()["synthesis:alpha-context"]["status"] == "published"
+    assert state.syntheses()["synthesis:alpha-context"]["published_path"] == "vault/synthesis/alpha-context.md"
+
+
+def test_publish_all_publishes_staged_output_page(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    staged = runtime.staging_dir / "outputs" / "research-brief.md"
+    staged.parent.mkdir(parents=True)
+    staged.write_text(
+        "---\npage_type: output\nstatus: staged\nsources:\n  - vault/concepts/alpha.md\n---\n# Research Brief\n",
+        encoding="utf-8",
+    )
+    state = ProjectState.load(runtime.state_dir)
+    state.upsert_page(
+        PageRecord(
+            path="staging/outputs/research-brief.md",
+            page_type="output",
+            status=ContentStatus.STAGED,
+            sha256="test-hash",
+            sources=["vault/concepts/alpha.md"],
+            last_host="codex",
+            last_run_id="run-1",
+            staged_path="staging/outputs/research-brief.md",
+        )
+    )
+    state.upsert_output(
+        {
+            "id": "output:research-brief",
+            "kind": "research_brief",
+            "title": "Research Brief",
+            "status": "staged",
+            "sources": ["vault/concepts/alpha.md"],
+            "staged_path": "staging/outputs/research-brief.md",
+            "last_host": "codex",
+            "last_run_id": "run-1",
+        }
+    )
+
+    result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
+
+    assert result.published_pages == ["vault/outputs/research-brief.md"]
+    assert (runtime.vault_dir / "outputs" / "research-brief.md").is_file()
+    assert ProjectState.load(runtime.state_dir).outputs()["output:research-brief"]["status"] == "published"
+
+
+def test_publish_all_skips_conflict_review_pages(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    conflict = runtime.staging_dir / "conflicts" / "review-me.md"
+    conflict.parent.mkdir(parents=True)
+    conflict.write_text(
+        "---\npage_type: conflict\nstatus: staged\nsources:\n  - raw/source.md\n---\n# Review Me\n",
+        encoding="utf-8",
+    )
+    ProjectState.load(runtime.state_dir).upsert_page(
+        PageRecord(
+            path="staging/conflicts/review-me.md",
+            page_type="conflict",
+            status=ContentStatus.STAGED,
+            sha256="test-hash",
+            sources=["raw/source.md"],
+            last_host="codex",
+            last_run_id="run-1",
+            staged_path="staging/conflicts/review-me.md",
+        )
+    )
+
+    result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
+
+    assert result.published_pages == []
+    assert not (runtime.vault_dir / "conflicts" / "review-me.md").exists()
 
 
 def _stage_graph_candidate(runtime, tmp_path: Path) -> str:
