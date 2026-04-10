@@ -190,6 +190,30 @@ class ProjectState:
     def conflicts(self) -> dict[str, dict[str, Any]]:
         return dict(self._payload.get("conflicts", {}))
 
+    def upsert_output(self, output: dict[str, Any]) -> None:
+        output_id = str(output["id"])
+        self._payload.setdefault("outputs", {})[output_id] = dict(output)
+        self._save()
+
+    def outputs(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("outputs", {}))
+
+    def upsert_synthesis(self, synthesis: dict[str, Any]) -> None:
+        synthesis_id = str(synthesis["id"])
+        self._payload.setdefault("syntheses", {})[synthesis_id] = dict(synthesis)
+        self._save()
+
+    def syntheses(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("syntheses", {}))
+
+    def upsert_health_finding(self, finding: dict[str, Any]) -> None:
+        finding_id = str(finding["id"])
+        self._payload.setdefault("health_findings", {})[finding_id] = dict(finding)
+        self._save()
+
+    def health_findings(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("health_findings", {}))
+
     def _save(self) -> None:
         atomic_write_json(self.manifest_path, self._payload)
 
@@ -205,6 +229,9 @@ def _empty_manifest() -> dict[str, Any]:
         "claims": {},
         "relations": {},
         "conflicts": {},
+        "outputs": {},
+        "syntheses": {},
+        "health_findings": {},
     }
 
 
@@ -216,7 +243,19 @@ def _normalize_manifest(payload: Any) -> dict[str, Any]:
         normalized["schema_version"] = normalized.pop("version")
     if "schema_version" not in normalized:
         raise StateFormatError("manifest.json is missing schema_version")
-    for key in ("sources", "pages", "links", "indexes", "nodes", "claims", "relations", "conflicts"):
+    for key in (
+        "sources",
+        "pages",
+        "links",
+        "indexes",
+        "nodes",
+        "claims",
+        "relations",
+        "conflicts",
+        "outputs",
+        "syntheses",
+        "health_findings",
+    ):
         value = normalized.setdefault(key, {})
         if not isinstance(value, dict):
             raise StateFormatError(f"manifest.json field {key} must be an object")

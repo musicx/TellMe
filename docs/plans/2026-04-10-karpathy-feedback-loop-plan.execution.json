@@ -17,7 +17,7 @@
     {
       "id": "task-1",
       "title": "State model for outputs, syntheses, and health findings",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "files": [
         "src/tellme/state.py",
@@ -30,7 +30,9 @@
       ],
       "verification": [
         "python -m pytest tests/test_state.py tests/test_config.py -q"
-      ]
+      ],
+      "completed_at": "2026-04-10",
+      "completion_evidence": "python -m pytest tests/test_state.py tests/test_config.py -q -> 10 passed"
     },
     {
       "id": "task-2",
