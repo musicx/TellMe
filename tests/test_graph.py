@@ -332,6 +332,75 @@ def test_consume_graph_candidate_stages_conflict_page(tmp_path: Path) -> None:
     )
 
 
+def test_consume_graph_candidate_marks_existing_node_as_enrichment(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    state = ProjectState.load(runtime.state_dir)
+    state.upsert_node(
+        {
+            "id": "concept:codex-graph-candidate",
+            "kind": "concept",
+            "title": "Codex Graph Candidate",
+            "summary": "Existing published node.",
+            "sources": ["raw/old.md"],
+            "status": "published",
+            "published_path": "vault/concepts/codex-graph-candidate.md",
+        }
+    )
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nNew evidence enriches an existing node.", encoding="utf-8")
+    ingest_run = RunStore(runtime.runs_dir).start("ingest", "codex")
+    ingest_file(runtime, source, ingest_run.run_id)
+    candidate_path = runtime.staging_dir / "graph" / "candidates" / "candidate.json"
+    candidate_path.parent.mkdir(parents=True)
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "knowledge_graph_update",
+                "source_references": ["raw/source.md"],
+                "nodes": [
+                    {
+                        "id": "concept:codex-graph-candidate",
+                        "kind": "concept",
+                        "title": "Codex Graph Candidate",
+                        "summary": "New evidence enriches this node.",
+                        "sources": ["raw/source.md"],
+                    }
+                ],
+                "claims": [],
+                "relations": [],
+                "conflicts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result_path = runtime.runs_dir / "codex-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "succeeded",
+                "host": "codex",
+                "run_id": "handoff-run",
+                "output_path": "staging/graph/candidates/candidate.json",
+                "source_references": ["raw/source.md"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    consume_codex_result(runtime=runtime, result_path=result_path, consume_run_id="consume-run")
+
+    page_text = (runtime.staging_dir / "concepts" / "codex-graph-candidate.md").read_text(encoding="utf-8")
+    assert "update_action: enrich_existing" in page_text
+    assert "previous_published_path: vault/concepts/codex-graph-candidate.md" in page_text
+    node = ProjectState.load(runtime.state_dir).nodes()["concept:codex-graph-candidate"]
+    assert node["update_action"] == "enrich_existing"
+    assert node["previous_published_path"] == "vault/concepts/codex-graph-candidate.md"
+
+
 def test_lint_reports_graph_relation_to_missing_node(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")

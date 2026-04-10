@@ -37,6 +37,7 @@ def create_codex_handoff(runtime: ProjectRuntime, run_id: str) -> CodexHandoffRe
     source_references = sorted(
         SourceRecord.from_dict(payload).path for payload in state.sources().values()
     )
+    graph_nodes = state.nodes()
     task = HostTask(
         command="compile",
         run_id=run_id,
@@ -48,7 +49,7 @@ def create_codex_handoff(runtime: ProjectRuntime, run_id: str) -> CodexHandoffRe
     )
     task_json = task.write(runtime.runs_dir / run_id / "host-tasks")
     task_markdown = task_json.with_suffix(".md")
-    task_markdown.write_text(_task_markdown(task, source_references), encoding="utf-8")
+    task_markdown.write_text(_task_markdown(task, source_references, graph_nodes), encoding="utf-8")
 
     result_template = runtime.runs_dir / run_id / "artifacts" / "codex-result.template.json"
     atomic_write_json(
@@ -142,8 +143,13 @@ def consume_codex_result(
     return CodexConsumeResult(staged_page=rel, staged_pages=[rel], source_references=result.source_references)
 
 
-def _task_markdown(task: HostTask, source_references: list[str]) -> str:
+def _task_markdown(
+    task: HostTask,
+    source_references: list[str],
+    graph_nodes: dict[str, dict],
+) -> str:
     sources = "\n".join(f"- `{source}`" for source in source_references) or "- No registered sources."
+    existing_nodes = _existing_nodes_markdown(graph_nodes)
     return f"""# TellMe Codex Compile Task
 
 Run id: `{task.run_id}`
@@ -172,6 +178,10 @@ Do not publish directly to `vault/`.
 
 {sources}
 
+## Existing Graph Nodes
+
+{existing_nodes}
+
 ## Required Result JSON
 
 Use the template at `runs/{task.run_id}/artifacts/codex-result.template.json`.
@@ -186,6 +196,20 @@ The `output_path` file must be a graph candidate JSON with:
 - `relations`: sourced edges with `source`, `target`, `type`, and `sources`
 - `conflicts`: apparent contradictions or tensions with source-backed explanation candidates
 """
+
+
+def _existing_nodes_markdown(graph_nodes: dict[str, dict]) -> str:
+    if not graph_nodes:
+        return "- No existing graph nodes."
+    lines: list[str] = []
+    for node_id, node in sorted(graph_nodes.items()):
+        title = str(node.get("title", node_id))
+        kind = str(node.get("kind", "node"))
+        status = str(node.get("status", "unknown"))
+        published_path = node.get("published_path")
+        path_suffix = f" -> `{published_path}`" if published_path else ""
+        lines.append(f"- `{node_id}` ({kind}, {status}): {title}{path_suffix}")
+    return "\n".join(lines)
 
 
 def _relative(root: Path, path: Path) -> str:

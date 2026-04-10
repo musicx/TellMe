@@ -47,10 +47,18 @@ def stage_graph_candidate(
     staged_relations: list[str] = []
     staged_conflicts: list[str] = []
     nodes_by_id = {str(node["id"]): node for node in candidate["nodes"]}
+    existing_nodes = state.nodes()
 
     for node in candidate["nodes"]:
         node_id = str(node["id"])
         kind = str(node["kind"])
+        existing_node = existing_nodes.get(node_id)
+        update_action = "enrich_existing" if existing_node and existing_node.get("published_path") else "create_new"
+        previous_published_path = (
+            str(existing_node["published_path"])
+            if existing_node and existing_node.get("published_path")
+            else None
+        )
         slug = _slug(_node_slug_value(node_id=node_id, title=str(node["title"])))
         page_path = runtime.staging_dir / _node_collection(kind) / f"{slug}.md"
         page_path.parent.mkdir(parents=True, exist_ok=True)
@@ -60,6 +68,8 @@ def stage_graph_candidate(
                 claims=[claim for claim in candidate["claims"] if claim["subject"] == node_id],
                 relations=[relation for relation in candidate["relations"] if relation["source"] == node_id],
                 nodes_by_id=nodes_by_id,
+                update_action=update_action,
+                previous_published_path=previous_published_path,
                 host=host,
                 run_id=run_id,
             ),
@@ -82,6 +92,9 @@ def stage_graph_candidate(
         )
         node_record = dict(node)
         node_record["status"] = ContentStatus.STAGED.value
+        node_record["update_action"] = update_action
+        if previous_published_path:
+            node_record["previous_published_path"] = previous_published_path
         node_record["staged_path"] = rel
         node_record["last_host"] = host
         node_record["last_run_id"] = run_id
@@ -242,6 +255,8 @@ def _node_page(
     claims: list[dict[str, Any]],
     relations: list[dict[str, Any]],
     nodes_by_id: dict[str, dict[str, Any]],
+    update_action: str,
+    previous_published_path: str | None,
     host: str,
     run_id: str,
 ) -> str:
@@ -259,8 +274,10 @@ def _node_page(
         "---\n"
         f"page_type: {node['kind']}\n"
         "status: staged\n"
+        f"update_action: {update_action}\n"
         f"node_id: {node['id']}\n"
         f"node_kind: {node['kind']}\n"
+        f"{f'previous_published_path: {previous_published_path}\\n' if previous_published_path else ''}"
         "sources:\n"
         f"{source_lines}\n"
         f"created_at: {now}\n"

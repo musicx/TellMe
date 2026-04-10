@@ -127,11 +127,12 @@ The first graph candidate protocol has now been introduced:
 - `lint` checks graph candidates for source attribution and broken node links.
 - `publish --all` publishes reviewed staged concept/entity graph node pages into `vault/`.
 - Graph candidate conflicts are staged as reviewable pages under `staging/conflicts/`.
+- Codex handoff lists existing graph nodes, and candidate consumption marks nodes as `create_new` or `enrich_existing` by node id.
 
 Remaining implementation work:
 
 - Rich review workflow for selecting, rejecting, or editing individual staged graph updates.
-- Matching/enrichment against existing nodes before staging.
+- Deeper semantic matching/enrichment beyond exact node-id matches.
 - Conflict resolution workflow after `staging/conflicts/` review.
 - Host CLI invocation wrappers for Claude Code, Codex, and OpenCode instead of handoff files only.
 - Deeper reconcile that reads existing Obsidian graph pages back into graph state.

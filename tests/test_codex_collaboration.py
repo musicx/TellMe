@@ -46,6 +46,32 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
     assert template["graph_candidate"]["nodes"] == []
 
 
+def test_codex_handoff_includes_existing_graph_nodes(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    state = ProjectState.load(runtime.state_dir)
+    state.upsert_node(
+        {
+            "id": "concept:existing-node",
+            "kind": "concept",
+            "title": "Existing Node",
+            "summary": "Already published knowledge point.",
+            "sources": ["raw/old.md"],
+            "status": "published",
+            "published_path": "vault/concepts/existing-node.md",
+        }
+    )
+    handoff_run = RunStore(runtime.runs_dir).start("compile", "codex")
+
+    result = create_codex_handoff(runtime=runtime, run_id=handoff_run.run_id)
+
+    task_markdown = (runtime.data_root / result.task_markdown_path).read_text(encoding="utf-8")
+    assert "## Existing Graph Nodes" in task_markdown
+    assert "`concept:existing-node`" in task_markdown
+    assert "vault/concepts/existing-node.md" in task_markdown
+
+
 def test_consume_codex_result_registers_staged_page(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
