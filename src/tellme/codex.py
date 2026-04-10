@@ -17,6 +17,10 @@ class CodexResultError(RuntimeError):
     """Raised when Codex output cannot be safely consumed by TellMe."""
 
 
+class CodexHandoffError(RuntimeError):
+    """Raised when Codex handoff context cannot be safely prepared."""
+
+
 @dataclass(frozen=True)
 class CodexHandoffResult:
     task_json_path: str
@@ -32,24 +36,40 @@ class CodexConsumeResult:
     staged_pages: list[str]
 
 
-def create_codex_handoff(runtime: ProjectRuntime, run_id: str) -> CodexHandoffResult:
+def create_codex_handoff(
+    runtime: ProjectRuntime,
+    run_id: str,
+    health_finding_id: str | None = None,
+) -> CodexHandoffResult:
     state = ProjectState.load(runtime.state_dir)
-    source_references = sorted(
-        SourceRecord.from_dict(payload).path for payload in state.sources().values()
-    )
+    health_finding = None
+    if health_finding_id is not None:
+        health_finding = state.health_findings().get(health_finding_id)
+        if not health_finding:
+            raise CodexHandoffError(f"unknown health finding: {health_finding_id}")
+        if health_finding.get("status") != ContentStatus.STAGED.value:
+            raise CodexHandoffError(f"health finding is not staged: {health_finding_id}")
+        source_references = sorted(str(source) for source in health_finding.get("sources", []))
+    else:
+        source_references = sorted(
+            SourceRecord.from_dict(payload).path for payload in state.sources().values()
+        )
     graph_nodes = state.nodes()
     task = HostTask(
         command="compile",
         run_id=run_id,
         host="codex",
-        allowed_read_roots=["raw", "state", "vault"],
+        allowed_read_roots=["raw", "state", "vault", "staging"],
         allowed_write_roots=["staging", "runs"],
         inputs=source_references,
         expected_output=f"runs/{run_id}/artifacts/codex-result.json",
     )
     task_json = task.write(runtime.runs_dir / run_id / "host-tasks")
     task_markdown = task_json.with_suffix(".md")
-    task_markdown.write_text(_task_markdown(task, source_references, graph_nodes), encoding="utf-8")
+    task_markdown.write_text(
+        _task_markdown(task, source_references, graph_nodes, health_finding),
+        encoding="utf-8",
+    )
 
     result_template = runtime.runs_dir / run_id / "artifacts" / "codex-result.template.json"
     atomic_write_json(
@@ -147,9 +167,11 @@ def _task_markdown(
     task: HostTask,
     source_references: list[str],
     graph_nodes: dict[str, dict],
+    health_finding: dict | None,
 ) -> str:
     sources = "\n".join(f"- `{source}`" for source in source_references) or "- No registered sources."
     existing_nodes = _existing_nodes_markdown(graph_nodes)
+    health_finding_section = _health_finding_markdown(health_finding)
     return f"""# TellMe Codex Compile Task
 
 Run id: `{task.run_id}`
@@ -177,6 +199,8 @@ Do not publish directly to `vault/`.
 ## Input Sources
 
 {sources}
+
+{health_finding_section}
 
 ## Existing Graph Nodes
 
@@ -210,6 +234,29 @@ def _existing_nodes_markdown(graph_nodes: dict[str, dict]) -> str:
         path_suffix = f" -> `{published_path}`" if published_path else ""
         lines.append(f"- `{node_id}` ({kind}, {status}): {title}{path_suffix}")
     return "\n".join(lines)
+
+
+def _health_finding_markdown(health_finding: dict | None) -> str:
+    if not health_finding:
+        return ""
+    affected_ids = "\n".join(
+        f"- `{affected_id}`" for affected_id in health_finding.get("affected_ids", [])
+    ) or "- No affected ids."
+    staged_path = str(health_finding.get("staged_path", ""))
+    staged_path_line = f"- review page: `{staged_path}`\n" if staged_path else ""
+    return (
+        "## Health Finding Focus\n\n"
+        "This handoff is focused on an existing staged health finding. Use it to guide the next graph update.\n\n"
+        f"- finding id: `{health_finding['id']}`\n"
+        f"- finding type: `{health_finding['finding_type']}`\n"
+        f"- summary: {health_finding['summary']}\n"
+        f"{staged_path_line}"
+        f"- suggested_next_action: {health_finding.get('suggested_next_action', 'manual_review')}\n\n"
+        "### Recommendation\n\n"
+        f"{health_finding['recommendation']}\n\n"
+        "### Affected IDs\n\n"
+        f"{affected_ids}\n"
+    )
 
 
 def _relative(root: Path, path: Path) -> str:

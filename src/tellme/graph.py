@@ -262,6 +262,11 @@ def _node_page(
 ) -> str:
     now = _utc_now()
     sources = _as_str_list(node["sources"])
+    previous_path_line = (
+        f"previous_published_path: {previous_published_path}\n"
+        if previous_published_path
+        else ""
+    )
     source_lines = "\n".join(f"  - {source}" for source in sources)
     claim_lines = "\n".join(f"- {claim['text']} [source: {', '.join(_as_str_list(claim['sources']))}]" for claim in claims)
     relation_lines = "\n".join(
@@ -277,7 +282,7 @@ def _node_page(
         f"update_action: {update_action}\n"
         f"node_id: {node['id']}\n"
         f"node_kind: {node['kind']}\n"
-        f"{f'previous_published_path: {previous_published_path}\\n' if previous_published_path else ''}"
+        f"{previous_path_line}"
         "sources:\n"
         f"{source_lines}\n"
         f"created_at: {now}\n"

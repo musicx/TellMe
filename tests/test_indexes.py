@@ -22,10 +22,12 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
         "vault/indexes/entities.md",
         "vault/indexes/synthesis.md",
         "vault/indexes/unresolved-conflicts.md",
+        "vault/indexes/health-review.md",
     ]
     root_index = (runtime.vault_dir / "index.md").read_text(encoding="utf-8")
     assert "TellMe Knowledge Base" in root_index
     assert "indexes/concepts.md" in root_index
+    assert "indexes/health-review.md" in root_index
     concepts = (runtime.vault_dir / "indexes" / "concepts.md").read_text(encoding="utf-8")
     assert "Codex Graph Candidate" in concepts
     assert "../concepts/codex-graph-candidate.md" in concepts
@@ -33,6 +35,9 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     assert "Alpha Synthesis" in synthesis
     conflicts = (runtime.vault_dir / "indexes" / "unresolved-conflicts.md").read_text(encoding="utf-8")
     assert "Needs Review" in conflicts
+    health = (runtime.vault_dir / "indexes" / "health-review.md").read_text(encoding="utf-8")
+    assert "Thin Node Needs Enrichment" in health
+    assert "../../staging/health/health-thin-node-needs-enrichment.md" in health
 
     state = ProjectState.load(runtime.state_dir)
     assert state.get_page("vault/index.md").page_type == "index"
@@ -50,6 +55,8 @@ def test_generate_vault_indexes_handles_empty_state(tmp_path: Path) -> None:
     assert "No published concepts yet." in concepts
     conflicts = (runtime.vault_dir / "indexes" / "unresolved-conflicts.md").read_text(encoding="utf-8")
     assert "No unresolved conflicts." in conflicts
+    health = (runtime.vault_dir / "indexes" / "health-review.md").read_text(encoding="utf-8")
+    assert "No staged health findings." in health
 
 
 def _seed_index_state(runtime) -> None:
@@ -90,6 +97,22 @@ def _seed_index_state(runtime) -> None:
             "status": "staged",
             "sources": ["raw/source.md"],
             "staged_path": "staging/conflicts/needs-review.md",
+        }
+    )
+    state.upsert_health_finding(
+        {
+            "id": "health:thin-node-needs-enrichment",
+            "finding_type": "thin_node",
+            "summary": "Thin Node Needs Enrichment",
+            "affected_ids": ["concept:codex-graph-candidate"],
+            "sources": ["raw/source.md"],
+            "recommendation": "Add stronger claims.",
+            "confidence": "high",
+            "suggested_next_action": "enrich_node",
+            "status": "staged",
+            "staged_path": "staging/health/health-thin-node-needs-enrichment.md",
+            "last_host": "codex",
+            "last_run_id": "seed-run",
         }
     )
     for path, page_type in [

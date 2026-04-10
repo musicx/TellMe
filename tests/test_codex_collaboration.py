@@ -72,6 +72,48 @@ def test_codex_handoff_includes_existing_graph_nodes(tmp_path: Path) -> None:
     assert "vault/concepts/existing-node.md" in task_markdown
 
 
+def test_codex_handoff_can_focus_on_health_finding_context(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nHealth finding source.", encoding="utf-8")
+    runs = RunStore(runtime.runs_dir)
+    ingest_run = runs.start("ingest", "codex")
+    ingest_file(runtime, source, ingest_run.run_id)
+    state = ProjectState.load(runtime.state_dir)
+    state.upsert_health_finding(
+        {
+            "id": "health:thin-node-needs-enrichment",
+            "finding_type": "thin_node",
+            "summary": "Thin Node needs more sourced claims.",
+            "affected_ids": ["concept:thin-node"],
+            "sources": ["raw/source.md"],
+            "recommendation": "Add claims or synthesis that deepen the node.",
+            "confidence": "high",
+            "suggested_next_action": "enrich_node",
+            "status": "staged",
+            "staged_path": "staging/health/health-thin-node-needs-enrichment.md",
+            "last_host": "codex",
+            "last_run_id": "consume-run",
+        }
+    )
+    handoff_run = runs.start("compile", "codex")
+
+    result = create_codex_handoff(
+        runtime=runtime,
+        run_id=handoff_run.run_id,
+        health_finding_id="health:thin-node-needs-enrichment",
+    )
+
+    task_markdown = (runtime.data_root / result.task_markdown_path).read_text(encoding="utf-8")
+    assert "## Health Finding Focus" in task_markdown
+    assert "Thin Node needs more sourced claims." in task_markdown
+    assert "suggested_next_action: enrich_node" in task_markdown
+    template = json.loads((runtime.data_root / result.result_template_path).read_text(encoding="utf-8"))
+    assert template["source_references"] == ["raw/source.md"]
+
+
 def test_consume_codex_result_registers_staged_page(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")

@@ -6,11 +6,16 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .codex import CodexResultError, consume_codex_result, create_codex_handoff
+from .codex import CodexHandoffError, CodexResultError, consume_codex_result, create_codex_handoff
 from .compiler import compile_sources
 from .config import load_runtime
 from .hosts import KNOWN_HOSTS
-from .health import create_health_handoff
+from .health import (
+    HealthResultError,
+    consume_health_result,
+    create_health_handoff,
+    resolve_health_finding,
+)
 from .ingest import ingest_file
 from .linting import lint_vault
 from .project import init_project
@@ -50,10 +55,19 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_parser.set_defaults(handler=_handle_ingest)
 
     lint_parser = subparsers.add_parser("lint", help="Run static vault checks")
-    lint_parser.add_argument(
+    lint_mode = lint_parser.add_mutually_exclusive_group()
+    lint_mode.add_argument(
         "--health-handoff",
         action="store_true",
         help="Create an LLM-readable health reflection task instead of running static lint",
+    )
+    lint_mode.add_argument(
+        "--consume-health-result",
+        help="Consume a staged health reflection result JSON",
+    )
+    lint_mode.add_argument(
+        "--resolve-health-finding",
+        help="Mark a staged health finding as resolved",
     )
     lint_parser.set_defaults(handler=_handle_lint)
 
@@ -76,6 +90,10 @@ def build_parser() -> argparse.ArgumentParser:
     compile_mode.add_argument(
         "--consume-result",
         help="Consume a Codex result JSON and register its staged output",
+    )
+    compile_parser.add_argument(
+        "--health-finding",
+        help="Focus a Codex handoff on one staged health finding id",
     )
     compile_parser.set_defaults(handler=_handle_compile)
 
@@ -153,6 +171,33 @@ def _handle_lint(args: argparse.Namespace) -> int:
                 "result_template_path": result.result_template_path,
                 "issues": [],
             }
+        if args.consume_health_result:
+            result_path = Path(args.consume_health_result)
+            if not result_path.is_absolute():
+                data_result_path = runtime.data_root / result_path
+                result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
+            result = consume_health_result(
+                runtime=runtime,
+                result_path=result_path,
+                consume_run_id=run.run_id,
+            )
+            return {
+                "consumed_result_path": result.result_path,
+                "finding_ids": result.finding_ids,
+                "staged_pages": result.staged_pages,
+                "issues": [],
+            }
+        if args.resolve_health_finding:
+            result = resolve_health_finding(
+                runtime=runtime,
+                finding_id=args.resolve_health_finding,
+                host=args.host,
+                run_id=run.run_id,
+            )
+            return {
+                "resolved_finding_id": result.finding_id,
+                "issues": [],
+            }
         result = lint_vault(runtime, current_run_id=run.run_id)
         return {
             "issues": [
@@ -166,14 +211,18 @@ def _handle_lint(args: argparse.Namespace) -> int:
             ]
         }
 
-    run = run_workflow(
-        project_root=runtime.project_root,
-        runs=runs,
-        command="lint",
-        host=args.host,
-        inputs={},
-        operation=operation,
-    )
+    try:
+        run = run_workflow(
+            project_root=runtime.project_root,
+            runs=runs,
+            command="lint",
+            host=args.host,
+            inputs={},
+            operation=operation,
+        )
+    except HealthResultError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     issues = run.outputs.get("issues", [])
     if args.health_handoff:
         print("tellme lint: health task")
@@ -181,12 +230,21 @@ def _handle_lint(args: argparse.Namespace) -> int:
         print("tellme lint: result template")
         print(run.outputs["result_template_path"])
         return 0
+    if args.consume_health_result:
+        print(f"tellme lint: consumed health result {run.outputs['consumed_result_path']}")
+        for page in run.outputs.get("staged_pages", []):
+            print(page)
+        return 0
+    if args.resolve_health_finding:
+        print(f"tellme lint: resolved health finding {run.outputs['resolved_finding_id']}")
+        return 0
     if not issues:
         print(f"tellme lint: no issues in {runtime.vault_dir}")
         return 0
     for issue in issues:
         print(f"{issue['severity']}: {issue['issue_type']}: {issue['path']}: {issue['message']}")
     return 1
+
 
 
 def _handle_reconcile(args: argparse.Namespace) -> int:
@@ -259,7 +317,11 @@ def _handle_compile(args: argparse.Namespace) -> int:
 
     def operation(run):
         if args.handoff:
-            result = create_codex_handoff(runtime=runtime, run_id=run.run_id)
+            result = create_codex_handoff(
+                runtime=runtime,
+                run_id=run.run_id,
+                health_finding_id=args.health_finding,
+            )
             return {
                 "task_json_path": result.task_json_path,
                 "task_markdown_path": result.task_markdown_path,
@@ -297,7 +359,7 @@ def _handle_compile(args: argparse.Namespace) -> int:
             inputs={},
             operation=operation,
         )
-    except CodexResultError as exc:
+    except (CodexResultError, CodexHandoffError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
     if args.handoff:

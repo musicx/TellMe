@@ -22,6 +22,7 @@ def generate_vault_indexes(runtime: ProjectRuntime, run_id: str, host: str) -> I
         ("vault/indexes/entities.md", _node_index("Entities", "entity", state.nodes())),
         ("vault/indexes/synthesis.md", _synthesis_index(state.syntheses())),
         ("vault/indexes/unresolved-conflicts.md", _conflict_index(state.conflicts())),
+        ("vault/indexes/health-review.md", _health_review_index(state.health_findings())),
     ]
     written: list[str] = []
 
@@ -64,6 +65,7 @@ def _root_index() -> str:
         "- [Entities](indexes/entities.md)\n"
         "- [Synthesis](indexes/synthesis.md)\n"
         "- [Unresolved Conflicts](indexes/unresolved-conflicts.md)\n"
+        "- [Health Review](indexes/health-review.md)\n"
     )
 
 
@@ -110,6 +112,23 @@ def _conflict_index(conflicts: dict[str, dict]) -> str:
         summary = str(conflict.get("summary", conflict.get("id", "Untitled conflict")))
         path = str(conflict.get("staged_path", conflict.get("published_path", "")))
         link = _relative_link(from_rel="vault/indexes/unresolved-conflicts.md", to_rel=path) if path else ""
+        lines.append(f"- [{summary}]({link})" if link else f"- {summary}")
+    return "\n".join(lines) + "\n"
+
+
+def _health_review_index(health_findings: dict[str, dict]) -> str:
+    lines = ["## Health Review", ""]
+    staged = [
+        item
+        for item in health_findings.values()
+        if item.get("status") == ContentStatus.STAGED.value
+    ]
+    if not staged:
+        lines.append("No staged health findings.")
+    for finding in sorted(staged, key=lambda item: str(item.get("summary", item.get("id", ""))).lower()):
+        summary = str(finding.get("summary", finding.get("id", "Untitled finding")))
+        path = str(finding.get("staged_path", ""))
+        link = _relative_link(from_rel="vault/indexes/health-review.md", to_rel=path) if path else ""
         lines.append(f"- [{summary}]({link})" if link else f"- {summary}")
     return "\n".join(lines) + "\n"
 

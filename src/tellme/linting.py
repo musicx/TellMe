@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import hashlib
 import json
+import re
 
 from .config import ProjectRuntime
 from .markdown import extract_wikilinks, parse_frontmatter
@@ -30,13 +31,18 @@ class LintResult:
 
 def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> LintResult:
     pages = sorted(runtime.vault_dir.rglob("*.md"))
-    titles = {page.stem for page in pages}
     issues: list[LintIssue] = []
+    titles: set[str] = set()
 
+    page_cache: list[tuple[Path, str, dict, str]] = []
     for page in pages:
-        rel = _relative(runtime.data_root, page)
         text = page.read_text(encoding="utf-8")
         frontmatter, body = parse_frontmatter(text)
+        page_cache.append((page, text, frontmatter, body))
+        titles.update(_page_titles(page, frontmatter, body))
+
+    for page, text, frontmatter, body in page_cache:
+        rel = _relative(runtime.data_root, page)
         if not frontmatter:
             issues.append(LintIssue("missing_frontmatter", rel, "Page has no frontmatter"))
         elif "sources" not in frontmatter:
@@ -82,6 +88,34 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
                         f"Graph relation target node is missing: {target}",
                     )
                 )
+        known_ids = (
+            set(state.nodes())
+            | set(state.claims())
+            | set(state.relations())
+            | set(state.conflicts())
+            | set(state.syntheses())
+            | set(state.outputs())
+        )
+        for finding in state.health_findings().values():
+            staged_path = str(finding.get("staged_path", ""))
+            if staged_path and not (runtime.data_root / staged_path).is_file():
+                issues.append(
+                    LintIssue(
+                        "health_missing_staged_page",
+                        staged_path,
+                        "Tracked health finding review page is missing from staging.",
+                    )
+                )
+            for affected_id in finding.get("affected_ids", []):
+                affected_value = str(affected_id)
+                if affected_value and affected_value not in known_ids:
+                    issues.append(
+                        LintIssue(
+                            "health_unknown_affected_id",
+                            str(finding.get("id", staged_path or affected_value)),
+                            f"Health finding affected id is missing from state: {affected_value}",
+                        )
+                    )
 
     if runtime.policies.get("lint", {}).get("check_running_runs", True):
         for run_json in sorted(runtime.runs_dir.glob("*/run.json")):
@@ -103,3 +137,14 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
 
 def _relative(root: Path, path: Path) -> str:
     return path.resolve().relative_to(root.resolve()).as_posix()
+
+
+def _page_titles(page: Path, frontmatter: dict, body: str) -> set[str]:
+    titles = {page.stem}
+    title = str(frontmatter.get("title", "")).strip()
+    if title:
+        titles.add(title)
+    heading_match = re.search(r"^#\s+(.+?)\s*$", body, re.MULTILINE)
+    if heading_match:
+        titles.add(heading_match.group(1).strip())
+    return {title for title in titles if title}

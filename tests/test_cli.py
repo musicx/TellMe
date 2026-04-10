@@ -322,6 +322,67 @@ def test_cli_publish_all_publishes_staged_graph_nodes(tmp_path: Path, monkeypatc
     assert (data_root / "vault" / "concepts" / "codex-graph-candidate.md").is_file()
 
 
+def test_cli_lint_consumes_health_result_and_stages_review_page(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nThin node evidence.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+    manifest_path = data_root / "state" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["nodes"]["concept:thin-node"] = {
+        "id": "concept:thin-node",
+        "kind": "concept",
+        "title": "Thin Node",
+        "status": "published",
+        "sources": ["raw/source.md"],
+        "published_path": "vault/concepts/thin-node.md"
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    result_path = data_root / "staging" / "health" / "health-run.json"
+    result_path.parent.mkdir(parents=True)
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "health_findings",
+                "run_id": "health-run",
+                "host": "codex",
+                "output_path": "staging/health/health-run.json",
+                "health_findings": [
+                    {
+                        "id": "health:thin-node-needs-enrichment",
+                        "finding_type": "thin_node",
+                        "summary": "Thin Node needs more sourced claims.",
+                        "affected_ids": ["concept:thin-node"],
+                        "sources": ["raw/source.md"],
+                        "recommendation": "Add claims or synthesis that deepen the node.",
+                        "confidence": "high"
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    consumed = run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "lint",
+        "--consume-health-result",
+        "staging/health/health-run.json",
+        cwd=tmp_path,
+    )
+
+    assert consumed.returncode == 0, consumed.stderr
+    assert "tellme lint: consumed health result staging/health/health-run.json" in consumed.stdout
+    assert (data_root / "staging" / "health" / "health-thin-node-needs-enrichment.md").is_file()
+
+
 def test_cli_publish_all_publishes_staged_query_synthesis(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
@@ -353,6 +414,128 @@ def test_cli_lint_health_handoff_writes_host_task(tmp_path: Path, monkeypatch) -
     assert "tellme lint: health task" in result.stdout
     task_line = next(line for line in result.stdout.splitlines() if line.endswith("health-codex.md"))
     assert (data_root / task_line).is_file()
+
+
+def test_cli_compile_handoff_can_focus_on_health_finding(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nThin node evidence.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+    health_result = data_root / "staging" / "health" / "health-run.json"
+    health_result.parent.mkdir(parents=True)
+    health_result.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "health_findings",
+                "run_id": "health-run",
+                "host": "codex",
+                "output_path": "staging/health/health-run.json",
+                "health_findings": [
+                    {
+                        "id": "health:thin-node-needs-enrichment",
+                        "finding_type": "thin_node",
+                        "summary": "Thin Node needs more sourced claims.",
+                        "affected_ids": ["concept:thin-node"],
+                        "sources": ["raw/source.md"],
+                        "recommendation": "Add claims or synthesis that deepen the node.",
+                        "confidence": "high"
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "lint",
+        "--consume-health-result",
+        "staging/health/health-run.json",
+        cwd=tmp_path,
+    )
+
+    result = run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "compile",
+        "--handoff",
+        "--health-finding",
+        "health:thin-node-needs-enrichment",
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    task_line = next(line for line in result.stdout.splitlines() if line.endswith("compile-codex.md"))
+    task_markdown = (data_root / task_line).read_text(encoding="utf-8")
+    assert "## Health Finding Focus" in task_markdown
+    assert "Thin Node needs more sourced claims." in task_markdown
+
+
+def test_cli_lint_can_resolve_health_finding(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nThin node evidence.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+    health_result = data_root / "staging" / "health" / "health-run.json"
+    health_result.parent.mkdir(parents=True)
+    health_result.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "health_findings",
+                "run_id": "health-run",
+                "host": "codex",
+                "output_path": "staging/health/health-run.json",
+                "health_findings": [
+                    {
+                        "id": "health:thin-node-needs-enrichment",
+                        "finding_type": "thin_node",
+                        "summary": "Thin Node needs more sourced claims.",
+                        "affected_ids": ["concept:thin-node"],
+                        "sources": ["raw/source.md"],
+                        "recommendation": "Add claims or synthesis that deepen the node.",
+                        "confidence": "high"
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "lint",
+        "--consume-health-result",
+        "staging/health/health-run.json",
+        cwd=tmp_path,
+    )
+
+    result = run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "lint",
+        "--resolve-health-finding",
+        "health:thin-node-needs-enrichment",
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "tellme lint: resolved health finding health:thin-node-needs-enrichment" in result.stdout
 
 
 def test_cli_compile_handoff_requires_codex_host(tmp_path: Path) -> None:
