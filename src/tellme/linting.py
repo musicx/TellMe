@@ -34,7 +34,7 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
     issues: list[LintIssue] = []
 
     for page in pages:
-        rel = _relative(runtime.project_root, page)
+        rel = _relative(runtime.data_root, page)
         text = page.read_text(encoding="utf-8")
         frontmatter, body = parse_frontmatter(text)
         if not frontmatter:
@@ -50,7 +50,7 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
         state = ProjectState.load(runtime.state_dir)
         for payload in state.pages().values():
             record = PageRecord.from_dict(payload)
-            path = runtime.project_root / record.path
+            path = runtime.data_root / record.path
             if not path.is_file():
                 continue
             current_hash = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -73,7 +73,7 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
                 issues.append(
                     LintIssue(
                         "running_run",
-                        _relative(runtime.project_root, run_json),
+                        _relative(runtime.data_root, run_json),
                         "Run is still marked running; inspect diagnostics or rerun the workflow.",
                     )
                 )

@@ -5,6 +5,10 @@ mode = "hybrid-orchestrator"
 primary_vault = "primary_vault"
 default_host = "codex"
 
+[data]
+root_env = "OBSIDIAN_VAULT_PATH"
+fallback_root = "~/.obsidian/llm_wiki"
+
 [layout]
 raw_dir = "raw"
 staging_dir = "staging"
@@ -33,3 +37,10 @@ dataview_compatible = true
 publish_policy = "balanced"
 reconcile_policy = "preserve-human-edits"
 model_policy = "host-routed"
+
+[knowledge_graph]
+primary_unit = "knowledge_point"
+raw_is_source_evidence = true
+vault_is_graph_projection = true
+require_source_attribution = true
+conflict_policy = "explain-and-stage"

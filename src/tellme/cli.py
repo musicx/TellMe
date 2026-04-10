@@ -207,7 +207,8 @@ def _handle_compile(args: argparse.Namespace) -> int:
         if args.consume_result:
             result_path = Path(args.consume_result)
             if not result_path.is_absolute():
-                result_path = runtime.project_root / result_path
+                data_result_path = runtime.data_root / result_path
+                result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
             result = consume_codex_result(
                 runtime=runtime,
                 result_path=result_path,

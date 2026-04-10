@@ -47,10 +47,10 @@ def query_vault(
         staged_path.write_text(_staged_answer_markdown(answer, host=host, run_id=run_id), encoding="utf-8")
 
     return QueryResult(
-        answer_path=_relative(runtime.project_root, artifact_path),
+        answer_path=_relative(runtime.data_root, artifact_path),
         matched_pages=[path for path, _score in matches],
-        host_task_path=_relative(runtime.project_root, task_path),
-        staged_path=_relative(runtime.project_root, staged_path) if staged_path else None,
+        host_task_path=_relative(runtime.data_root, task_path),
+        staged_path=_relative(runtime.data_root, staged_path) if staged_path else None,
     )
 
 
@@ -61,7 +61,7 @@ def _match_pages(runtime: ProjectRuntime, question: str) -> list[tuple[str, int]
         text = page.read_text(encoding="utf-8", errors="replace").lower()
         score = sum(text.count(term) for term in terms)
         if score > 0:
-            scored.append((_relative(runtime.project_root, page), score))
+            scored.append((_relative(runtime.data_root, page), score))
     return sorted(scored, key=lambda item: (-item[1], item[0]))[:10]
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from tellme.config import load_runtime
@@ -23,8 +24,8 @@ def test_parse_frontmatter_and_extract_wikilinks() -> None:
 def test_lint_vault_reports_missing_frontmatter(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
-    (project_root / "vault" / "No Frontmatter.md").write_text("# No Frontmatter\n", encoding="utf-8")
     runtime = load_runtime(project_root=project_root, machine="test-pc")
+    (runtime.vault_dir / "No Frontmatter.md").write_text("# No Frontmatter\n", encoding="utf-8")
 
     result = lint_vault(runtime)
 
@@ -34,11 +35,11 @@ def test_lint_vault_reports_missing_frontmatter(tmp_path: Path) -> None:
 def test_lint_vault_reports_broken_wikilink(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
-    (project_root / "vault" / "Page.md").write_text(
+    runtime = load_runtime(project_root=project_root, machine="test-pc")
+    (runtime.vault_dir / "Page.md").write_text(
         "---\ntitle: Page\nsources: [raw/page.md]\n---\nSee [[Missing Page]].",
         encoding="utf-8",
     )
-    runtime = load_runtime(project_root=project_root, machine="test-pc")
 
     result = lint_vault(runtime)
 
@@ -54,19 +55,21 @@ def test_cli_lint_creates_run_record(tmp_path: Path) -> None:
     result = run_cli("--project", str(project_root), "lint", cwd=tmp_path)
 
     assert result.returncode == 0, result.stderr
-    run_dirs = list((project_root / "runs").glob("*/run.json"))
+    data_root = Path(os.environ["OBSIDIAN_VAULT_PATH"])
+    run_dirs = list((data_root / "runs").glob("*/run.json"))
     assert len(run_dirs) == 1
 
 
 def test_lint_vault_reports_state_page_hash_drift(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
-    page = project_root / "vault" / "Page.md"
+    runtime = load_runtime(project_root=project_root, machine="test-pc")
+    page = runtime.vault_dir / "Page.md"
     page.write_text(
         "---\ntitle: Page\nsources: [raw/page.md]\n---\nOriginal.",
         encoding="utf-8",
     )
-    state = ProjectState.load(project_root / "state")
+    state = ProjectState.load(runtime.state_dir)
     state.upsert_page(
         PageRecord(
             path="vault/Page.md",
@@ -79,8 +82,6 @@ def test_lint_vault_reports_state_page_hash_drift(tmp_path: Path) -> None:
             published_path="vault/Page.md",
         )
     )
-    runtime = load_runtime(project_root=project_root, machine="test-pc")
-
     result = lint_vault(runtime)
 
     assert any(issue.issue_type == "page_hash_drift" for issue in result.issues)

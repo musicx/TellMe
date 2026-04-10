@@ -19,7 +19,7 @@ def ingest_file(runtime: ProjectRuntime, source_path: Path, run_id: str) -> Sour
 
     content = raw_path.read_text(encoding="utf-8")
     record = SourceRecord.register(
-        project_root=runtime.project_root,
+        project_root=runtime.data_root,
         path=raw_path,
         content=content,
         registration_run_id=run_id,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,7 @@ class HostSettings:
 @dataclass(frozen=True)
 class ProjectRuntime:
     project_root: Path
+    data_root: Path
     project: ProjectSettings
     machine: MachineSettings | None
     host: HostSettings | None
@@ -56,15 +58,19 @@ def load_runtime(
     policies = _load_policies(root)
 
     layout = dict(project_payload.get("layout", {}))
+    data_root = _machine_data_root(machine_settings) or _data_root(project_payload)
 
     def path_for(key: str, default: str) -> Path:
         machine_key = f"{key}_root"
         if machine_settings and machine_key in machine_settings.paths:
             return machine_settings.paths[machine_key]
-        return (root / str(layout.get(f"{key}_dir", default))).resolve()
+        if key == "vault" and machine_settings and "primary_vault" in machine_settings.paths:
+            return machine_settings.paths["primary_vault"]
+        return (data_root / str(layout.get(f"{key}_dir", default))).resolve()
 
     return ProjectRuntime(
         project_root=root,
+        data_root=data_root,
         project=project,
         machine=machine_settings,
         host=host_settings,
@@ -91,6 +97,19 @@ def _project_settings(payload: dict[str, Any]) -> ProjectSettings:
     )
 
 
+def _data_root(payload: dict[str, Any]) -> Path:
+    data = payload.get("data", {})
+    env_var = str(data.get("root_env", "OBSIDIAN_VAULT_PATH"))
+    env_value = os.environ.get(env_var, "").strip()
+    if env_value:
+        return Path(env_value).expanduser().resolve()
+    configured = str(data.get("root", "")).strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    fallback = str(data.get("fallback_root", "~/.obsidian/llm_wiki"))
+    return Path(fallback).expanduser().resolve()
+
+
 def _load_machine(root: Path, machine: str | None) -> MachineSettings | None:
     if not machine:
         return None
@@ -106,6 +125,15 @@ def _load_machine(root: Path, machine: str | None) -> MachineSettings | None:
         platform=str(machine_payload.get("platform", "")),
         paths={key: Path(str(value)).expanduser().resolve() for key, value in paths_payload.items()},
     )
+
+
+def _machine_data_root(machine_settings: MachineSettings | None) -> Path | None:
+    if not machine_settings:
+        return None
+    for key in ("raw_root", "staging_root", "state_root", "runs_root", "vault_root", "primary_vault"):
+        if key in machine_settings.paths:
+            return machine_settings.paths[key].parent.resolve()
+    return None
 
 
 def _load_host(root: Path, host: str | None) -> HostSettings | None:

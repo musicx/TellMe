@@ -29,8 +29,13 @@ def test_cli_help_lists_mvp_commands(tmp_path: Path) -> None:
         assert command in result.stdout
 
 
-def test_init_creates_project_layout_and_machine_config(tmp_path: Path) -> None:
+def test_init_creates_project_layout_and_machine_config(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
 
     result = run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
 
@@ -41,29 +46,29 @@ def test_init_creates_project_layout_and_machine_config(tmp_path: Path) -> None:
         "config/policies",
         "docs",
         "hosts",
-        "raw",
-        "runs",
-        "staging",
-        "state",
         "templates",
-        "vault",
     ]:
         assert (project_root / directory).is_dir()
+    for directory in ["raw", "runs", "staging", "state", "vault"]:
+        assert not (project_root / directory).exists()
+        assert (data_root / directory).is_dir()
 
     assert (project_root / "config" / "project.toml").is_file()
     assert (project_root / "config" / "machines" / "test-pc.toml").is_file()
-    assert (project_root / "state" / "manifest.json").is_file()
-    assert (project_root / "runs" / ".gitkeep").is_file()
+    assert (data_root / "state" / "manifest.json").is_file()
+    assert (data_root / "runs" / ".gitkeep").is_file()
 
 
-def test_workflow_command_resolves_explicit_project(tmp_path: Path) -> None:
+def test_workflow_command_resolves_explicit_project(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
 
     result = run_cli("--project", str(project_root), "lint", cwd=tmp_path)
 
     assert result.returncode == 0, result.stderr
-    assert str(project_root.resolve()) in result.stdout
+    assert str((data_root / "vault").resolve()) in result.stdout
 
 
 def test_workflow_command_fails_outside_project(tmp_path: Path) -> None:
@@ -73,8 +78,10 @@ def test_workflow_command_fails_outside_project(tmp_path: Path) -> None:
     assert "not inside a TellMe project" in result.stderr
 
 
-def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path) -> None:
+def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nAlpha content for TellMe.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
@@ -93,8 +100,13 @@ def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path) -> None:
     assert "implementation pending" not in query_result.stdout
 
 
-def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(tmp_path: Path) -> None:
+def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nNeeds review.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
@@ -112,8 +124,10 @@ def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(tm
     assert "staging/sources/source.md" in result.stdout
 
 
-def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path) -> None:
+def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nCodex handoff source.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
@@ -124,12 +138,12 @@ def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path) -> None:
     assert handoff.returncode == 0, handoff.stderr
     assert "tellme compile: codex task" in handoff.stdout
     task_line = next(line for line in handoff.stdout.splitlines() if line.endswith("compile-codex.md"))
-    assert (project_root / task_line).is_file()
+    assert (data_root / task_line).is_file()
 
-    staged = project_root / "staging" / "codex" / "draft.md"
+    staged = data_root / "staging" / "codex" / "draft.md"
     staged.parent.mkdir(parents=True)
     staged.write_text("---\npage_type: synthesis\nsources:\n  - raw/source.md\n---\n# Draft", encoding="utf-8")
-    result_path = project_root / "runs" / "codex-result.json"
+    result_path = data_root / "runs" / "codex-result.json"
     result_path.write_text(
         json.dumps(
             {

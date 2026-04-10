@@ -7,12 +7,12 @@
 TellMe 是一个混合式 LLM-wiki 编排器：
 
 - `TellMe` 负责项目状态、配置、生命周期、发布策略与 reconcile。
-- `Obsidian` 负责展示 `vault/` 中的已发布 Markdown。
+- `Obsidian` 负责展示 `vault/` 中的已发布知识点 wiki graph。
 - `Claude Code`、`Codex`、`OpenCode` 作为宿主接入同一项目。
 
 ## 真实控制面
 
-宿主必须把以下目录视为系统真相来源：
+宿主必须把以下目录视为系统真相来源，但这些目录不应位于源码 repo 根目录。它们应位于 `$OBSIDIAN_VAULT_PATH`、机器配置指定目录或 fallback 数据根目录下：
 
 - `config/`
 - `state/`
@@ -21,6 +21,10 @@ TellMe 是一个混合式 LLM-wiki 编排器：
 - `staging/`
 
 `vault/` 不是完整系统状态，只是面向 Obsidian 的发布目录。
+
+## 知识图谱目标
+
+TellMe 的最终 vault 不应是一组 raw document mirror。宿主加工 raw 时，应抽取核心概念、实体、claim 和 relation，对照已有 vault graph，优先补充已有知识点；只有不存在对应节点时才新建节点。发现矛盾时，不应直接覆盖，应生成 conflict 或 explanation candidate 并进入 `staging/`。
 
 ## 核心规则
 
@@ -36,20 +40,20 @@ TellMe 是一个混合式 LLM-wiki 编排器：
 
 - `tellme init`: 初始化项目、配置、目录和宿主适配文件
 - `tellme ingest`: 注册并分析原始资料
-- `tellme compile`: 从 `raw/` 生成或更新 wiki 候选内容
+- `tellme compile`: 从 `raw/` 生成或更新知识点、claim、relation、conflict 等 graph 候选内容
 - `tellme query`: 基于已发布内容回答问题，并可回写结果
 - `tellme lint`: 检查断链、孤儿页、frontmatter、索引漂移、来源缺失
 - `tellme reconcile`: 扫描宿主直接修改并修正状态与索引
 
 ## 文档入口
 
-- 设计文档：`docs/designs/2026-04-09-tellme-intital-design.md`
-- 参考实现分析：`docs/analysis/overview.md`
+- 设计文档：`docs/designs/2026-04-10-knowledge-graph-mvp-redesign.md`
+- 参考实现分析：`docs/analysis/reference-capability-summary-2026-04-10.md`
 - 项目配置：`config/project.toml`
 
 ## 当前阶段
 
-当前仓库处于本地 orchestrator V1 阶段。六个正式命令已有基础行为，但真实 LLM synthesis、宿主 CLI 自动调用、完整发布策略和深度 reconcile 仍是后续能力。若宿主继续实现代码，应先遵循 `docs/designs/2026-04-09-tellme-intital-design.md` 中的边界，不要绕开既定目录分层与配置模型。
+当前仓库处于本地 orchestrator V1 阶段。六个正式命令已有基础行为，但 graph candidate protocol、真实 LLM synthesis、宿主 CLI 自动调用、完整发布策略和深度 reconcile 仍是后续能力。若宿主继续实现代码，应先遵循 `docs/designs/2026-04-10-knowledge-graph-mvp-redesign.md` 中的边界，不要绕开既定目录分层与配置模型。
 
 ## Codex 协作约束
 

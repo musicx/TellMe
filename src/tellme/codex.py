@@ -64,9 +64,9 @@ def create_codex_handoff(runtime: ProjectRuntime, run_id: str) -> CodexHandoffRe
     )
 
     return CodexHandoffResult(
-        task_json_path=_relative(runtime.project_root, task_json),
-        task_markdown_path=_relative(runtime.project_root, task_markdown),
-        result_template_path=_relative(runtime.project_root, result_template),
+        task_json_path=_relative(runtime.data_root, task_json),
+        task_markdown_path=_relative(runtime.data_root, task_markdown),
+        result_template_path=_relative(runtime.data_root, result_template),
         source_references=source_references,
     )
 
@@ -86,7 +86,7 @@ def consume_codex_result(
     if result.status != "succeeded":
         raise CodexResultError(f"codex result status is not succeeded: {result.status}")
 
-    output_path = (runtime.project_root / result.output_path).resolve()
+    output_path = (runtime.data_root / result.output_path).resolve()
     try:
         output_path.relative_to(runtime.staging_dir.resolve())
     except ValueError as exc:
@@ -94,7 +94,7 @@ def consume_codex_result(
     if not output_path.is_file():
         raise CodexResultError(f"codex output file not found: {result.output_path}")
 
-    rel = _relative(runtime.project_root, output_path)
+    rel = _relative(runtime.data_root, output_path)
     frontmatter, _body = parse_frontmatter(output_path.read_text(encoding="utf-8"))
     page_type = str(frontmatter.get("page_type", "codex_candidate")) if frontmatter else "codex_candidate"
     state = ProjectState.load(runtime.state_dir)

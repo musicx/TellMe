@@ -45,7 +45,7 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
     task_path = task.write(runtime.runs_dir / run_id / "host-tasks")
 
     for source in sources:
-        raw_path = runtime.project_root / (source.raw_path or source.path)
+        raw_path = runtime.data_root / (source.raw_path or source.path)
         if not raw_path.is_file():
             continue
         base_dir = runtime.vault_dir if direct_publish else runtime.staging_dir
@@ -60,7 +60,7 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
             status="published" if direct_publish else "staged",
         )
         page_path.write_text(content, encoding="utf-8")
-        page_rel = _relative(runtime.project_root, page_path)
+        page_rel = _relative(runtime.data_root, page_path)
         page_hash = hashlib.sha256(page_path.read_bytes()).hexdigest()
         state.upsert_page(
             PageRecord(
@@ -107,8 +107,8 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
     return CompileResult(
         published_pages=published_pages,
         staged_pages=staged_pages,
-        host_task_path=_relative(runtime.project_root, task_path),
-        artifact_path=_relative(runtime.project_root, artifact_path),
+        host_task_path=_relative(runtime.data_root, task_path),
+        artifact_path=_relative(runtime.data_root, artifact_path),
     )
 
 

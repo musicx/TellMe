@@ -26,7 +26,7 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
 
     result = create_codex_handoff(runtime=runtime, run_id=handoff_run.run_id)
 
-    task_markdown = (project_root / result.task_markdown_path).read_text(encoding="utf-8")
+    task_markdown = (runtime.data_root / result.task_markdown_path).read_text(encoding="utf-8")
     assert result.task_json_path == f"runs/{handoff_run.run_id}/host-tasks/compile-codex.json"
     assert result.task_markdown_path == f"runs/{handoff_run.run_id}/host-tasks/compile-codex.md"
     assert result.result_template_path == f"runs/{handoff_run.run_id}/artifacts/codex-result.template.json"
@@ -34,7 +34,7 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
     assert "raw/source.md" in task_markdown
     assert "Do not modify `raw/`" in task_markdown
 
-    template = json.loads((project_root / result.result_template_path).read_text(encoding="utf-8"))
+    template = json.loads((runtime.data_root / result.result_template_path).read_text(encoding="utf-8"))
     assert template["schema_version"] == 1
     assert template["host"] == "codex"
     assert template["run_id"] == handoff_run.run_id
@@ -46,13 +46,14 @@ def test_consume_codex_result_registers_staged_page(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, host="codex")
-    staged_page = project_root / "staging" / "codex" / "answer.md"
+    staged_page = runtime.staging_dir / "codex" / "answer.md"
     staged_page.parent.mkdir(parents=True)
     staged_page.write_text(
         "---\npage_type: synthesis\nsources:\n  - raw/source.md\n---\n# Answer\n\nCodex draft.",
         encoding="utf-8",
     )
-    result_path = project_root / "runs" / "codex-result.json"
+    result_path = runtime.runs_dir / "codex-result.json"
+    result_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.write_text(
         json.dumps(
             {
@@ -83,7 +84,8 @@ def test_consume_codex_result_rejects_output_outside_staging(tmp_path: Path) -> 
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, host="codex")
-    result_path = project_root / "runs" / "bad-result.json"
+    result_path = runtime.runs_dir / "bad-result.json"
+    result_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.write_text(
         json.dumps(
             {

@@ -26,7 +26,7 @@ def test_compile_publishes_registered_source_summary_and_records_state(tmp_path:
     result = compile_sources(runtime=runtime, run_id=compile_run.run_id, host="codex")
 
     assert result.published_pages == ["vault/sources/outside.md"]
-    page_path = project_root / "vault" / "sources" / "outside.md"
+    page_path = runtime.vault_dir / "sources" / "outside.md"
     assert page_path.is_file()
     page_text = page_path.read_text(encoding="utf-8")
     assert "page_type: source_summary" in page_text
@@ -90,7 +90,7 @@ def test_compile_stages_source_summary_when_publish_policy_disables_direct_publi
 
     assert result.published_pages == []
     assert result.staged_pages == ["staging/sources/outside.md"]
-    assert not (project_root / "vault" / "sources" / "outside.md").exists()
-    assert (project_root / "staging" / "sources" / "outside.md").is_file()
+    assert not (runtime.vault_dir / "sources" / "outside.md").exists()
+    assert (runtime.staging_dir / "sources" / "outside.md").is_file()
     state = ProjectState.load(runtime.state_dir)
     assert state.get_page("staging/sources/outside.md").status == ContentStatus.STAGED

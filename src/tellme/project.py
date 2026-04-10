@@ -1,28 +1,25 @@
 from __future__ import annotations
 
+import os
+import tomllib
 from pathlib import Path
 
 from .state import ProjectState
 
 
-PROJECT_DIRS = (
+CONTROL_DIRS = (
     "config/hosts",
     "config/machines",
     "config/policies",
     "docs",
     "hosts",
-    "raw",
-    "runs",
-    "staging",
-    "state",
     "templates",
-    "vault",
 )
 
 
 def init_project(project_root: Path, machine: str) -> None:
     project_root.mkdir(parents=True, exist_ok=True)
-    for directory in PROJECT_DIRS:
+    for directory in CONTROL_DIRS:
         (project_root / directory).mkdir(parents=True, exist_ok=True)
 
     _write_if_missing(project_root / "config" / "project.toml", _project_toml())
@@ -34,8 +31,11 @@ def init_project(project_root: Path, machine: str) -> None:
         project_root / "config" / "machines" / f"{machine}.toml",
         _machine_toml(machine=machine, project_root=project_root),
     )
-    _write_if_missing(project_root / "runs" / ".gitkeep", "")
-    ProjectState.create(project_root / "state")
+    data_paths = _data_paths(project_root=project_root, machine=machine)
+    for key in ("raw_root", "staging_root", "state_root", "runs_root", "primary_vault"):
+        data_paths[key].mkdir(parents=True, exist_ok=True)
+    _write_if_missing(data_paths["runs_root"] / ".gitkeep", "")
+    ProjectState.create(data_paths["state_root"])
 
 
 def _write_if_missing(path: Path, content: str) -> None:
@@ -49,6 +49,10 @@ def _project_toml() -> str:
 name = "TellMe"
 mode = "hybrid-orchestrator"
 primary_vault = "primary_vault"
+
+[data]
+root_env = "OBSIDIAN_VAULT_PATH"
+fallback_root = "~/.obsidian/llm_wiki"
 
 [layout]
 raw_dir = "raw"
@@ -82,17 +86,19 @@ check_running_runs = true
 
 def _machine_toml(machine: str, project_root: Path) -> str:
     root = str(project_root)
+    data_root = _default_data_root()
     return f"""[machine]
 name = "{machine}"
 platform = "{_platform_name()}"
 
 [paths]
 project_root = "{_toml_escape(root)}"
-primary_vault = "{_toml_escape(str(project_root / "vault"))}"
-raw_root = "{_toml_escape(str(project_root / "raw"))}"
-staging_root = "{_toml_escape(str(project_root / "staging"))}"
-state_root = "{_toml_escape(str(project_root / "state"))}"
-runs_root = "{_toml_escape(str(project_root / "runs"))}"
+primary_vault = "{_toml_escape(str(data_root / "vault"))}"
+vault_root = "{_toml_escape(str(data_root / "vault"))}"
+raw_root = "{_toml_escape(str(data_root / "raw"))}"
+staging_root = "{_toml_escape(str(data_root / "staging"))}"
+state_root = "{_toml_escape(str(data_root / "state"))}"
+runs_root = "{_toml_escape(str(data_root / "runs"))}"
 """
 
 
@@ -108,3 +114,38 @@ def _platform_name() -> str:
 
 def _toml_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _default_data_root() -> Path:
+    env_value = os.environ.get("OBSIDIAN_VAULT_PATH", "").strip()
+    if env_value:
+        return Path(env_value).expanduser().resolve()
+    return (Path.home() / ".obsidian" / "llm_wiki").resolve()
+
+
+def _data_paths(project_root: Path, machine: str) -> dict[str, Path]:
+    machine_path = project_root / "config" / "machines" / f"{machine}.toml"
+    if machine_path.exists():
+        payload = _read_toml(machine_path)
+        paths = payload.get("paths", {})
+        if isinstance(paths, dict):
+            return {
+                "primary_vault": Path(str(paths.get("primary_vault", _default_data_root() / "vault"))).expanduser().resolve(),
+                "raw_root": Path(str(paths.get("raw_root", _default_data_root() / "raw"))).expanduser().resolve(),
+                "staging_root": Path(str(paths.get("staging_root", _default_data_root() / "staging"))).expanduser().resolve(),
+                "state_root": Path(str(paths.get("state_root", _default_data_root() / "state"))).expanduser().resolve(),
+                "runs_root": Path(str(paths.get("runs_root", _default_data_root() / "runs"))).expanduser().resolve(),
+            }
+    data_root = _default_data_root()
+    return {
+        "primary_vault": data_root / "vault",
+        "raw_root": data_root / "raw",
+        "staging_root": data_root / "staging",
+        "state_root": data_root / "state",
+        "runs_root": data_root / "runs",
+    }
+
+
+def _read_toml(path: Path) -> dict:
+    with path.open("rb") as handle:
+        return tomllib.load(handle)
