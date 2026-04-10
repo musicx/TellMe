@@ -13,6 +13,7 @@ from .hosts import KNOWN_HOSTS
 from .ingest import ingest_file
 from .linting import lint_vault
 from .project import init_project
+from .publish import PublishError, publish_staged_graph
 from .query import query_vault
 from .reconcile import reconcile_vault
 from .resolver import ProjectNotFoundError
@@ -20,7 +21,7 @@ from .runs import RunStore
 from .workflow import run_workflow
 
 
-COMMANDS = ("init", "ingest", "compile", "query", "lint", "reconcile")
+COMMANDS = ("init", "ingest", "compile", "query", "lint", "reconcile", "publish")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,6 +53,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     reconcile_parser = subparsers.add_parser("reconcile", help="Reconcile vault drift into state")
     reconcile_parser.set_defaults(handler=_handle_reconcile)
+
+    publish_parser = subparsers.add_parser("publish", help="Publish reviewed staged graph pages to vault")
+    publish_target = publish_parser.add_mutually_exclusive_group(required=True)
+    publish_target.add_argument("--all", action="store_true", help="Publish all staged graph node pages")
+    publish_target.add_argument("--path", help="Publish one staged graph page path")
+    publish_parser.set_defaults(handler=_handle_publish)
 
     compile_parser = subparsers.add_parser("compile", help="Compile registered sources into vault pages")
     compile_mode = compile_parser.add_mutually_exclusive_group()
@@ -183,6 +190,41 @@ def _handle_reconcile(args: argparse.Namespace) -> int:
 
     changed_pages = run.outputs.get("changed_pages", [])
     print(f"tellme reconcile: {len(changed_pages)} changed page(s)")
+    return 0
+
+
+def _handle_publish(args: argparse.Namespace) -> int:
+    runtime = _load_runtime_from_args(args)
+    if runtime is None:
+        return 2
+    runs = RunStore(runtime.runs_dir)
+
+    def operation(run):
+        result = publish_staged_graph(
+            runtime=runtime,
+            run_id=run.run_id,
+            host=args.host,
+            staged_path=None if args.all else args.path,
+        )
+        return {"published_pages": result.published_pages}
+
+    try:
+        run = run_workflow(
+            project_root=runtime.project_root,
+            runs=runs,
+            command="publish",
+            host=args.host,
+            inputs={"all": args.all, "path": args.path},
+            operation=operation,
+        )
+    except PublishError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    published_pages = run.outputs.get("published_pages", [])
+    print(f"tellme publish: published {len(published_pages)} page(s)")
+    for page in published_pages:
+        print(page)
     return 0
 
 

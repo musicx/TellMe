@@ -125,10 +125,11 @@ The first graph candidate protocol has now been introduced:
 - `compile --consume-result` accepts graph candidate JSON and stages concept pages.
 - `state/manifest.json` gains graph sections for nodes, claims, relations, and conflicts.
 - `lint` checks graph candidates for source attribution and broken node links.
+- `publish --all` publishes reviewed staged concept/entity graph node pages into `vault/`.
 
 Remaining implementation work:
 
-- Publish/review flow from staged graph updates into `vault/`.
+- Rich review workflow for selecting, rejecting, or editing individual staged graph updates.
 - Matching/enrichment against existing nodes before staging.
 - Conflict pages under `staging/conflicts/` with explanation candidates.
 - Host CLI invocation wrappers for Claude Code, Codex, and OpenCode instead of handoff files only.
