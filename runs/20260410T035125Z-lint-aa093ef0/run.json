@@ -1,0 +1,12 @@
+{
+  "command": "lint",
+  "completed_at": "2026-04-10T03:51:25.071508+00:00",
+  "host": "codex",
+  "inputs": {},
+  "outputs": {
+    "issues": []
+  },
+  "run_id": "20260410T035125Z-lint-aa093ef0",
+  "started_at": "2026-04-10T03:51:25.059900+00:00",
+  "status": "succeeded"
+}

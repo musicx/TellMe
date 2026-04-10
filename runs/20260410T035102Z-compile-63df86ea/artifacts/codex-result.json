@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "succeeded",
+  "host": "codex",
+  "run_id": "20260410T035102Z-compile-63df86ea",
+  "output_path": "staging/codex/openai-harness-engineering-codex-notes.md",
+  "source_references": [
+    "raw/openai-harness-engineering.md"
+  ],
+  "confidence": "review-required",
+  "errors": []
+}

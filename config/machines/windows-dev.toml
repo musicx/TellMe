@@ -1,0 +1,11 @@
+[machine]
+name = "windows-dev"
+platform = "windows"
+
+[paths]
+project_root = "E:\\Code\\Home\\AI\\TellMe"
+primary_vault = "E:\\Code\\Home\\AI\\TellMe\\vault"
+raw_root = "E:\\Code\\Home\\AI\\TellMe\\raw"
+staging_root = "E:\\Code\\Home\\AI\\TellMe\\staging"
+state_root = "E:\\Code\\Home\\AI\\TellMe\\state"
+runs_root = "E:\\Code\\Home\\AI\\TellMe\\runs"

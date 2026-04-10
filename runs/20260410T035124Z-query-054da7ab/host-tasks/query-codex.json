@@ -1,0 +1,19 @@
+{
+  "allowed_read_roots": [
+    "vault",
+    "state"
+  ],
+  "allowed_write_roots": [
+    "staging",
+    "runs"
+  ],
+  "command": "query",
+  "expected_output": "artifacts/query-answer.md",
+  "host": "codex",
+  "inputs": [
+    "vault/sources/openai-harness-engineering.md",
+    "vault/README.md"
+  ],
+  "run_id": "20260410T035124Z-query-054da7ab",
+  "schema_version": 1
+}

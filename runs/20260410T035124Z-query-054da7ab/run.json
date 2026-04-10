@@ -1,0 +1,21 @@
+{
+  "command": "query",
+  "completed_at": "2026-04-10T03:51:24.790056+00:00",
+  "host": "codex",
+  "inputs": {
+    "question": "Codex \u5de5\u7a0b\u5bf9 TellMe \u6709\u4ec0\u4e48\u542f\u53d1",
+    "stage": true
+  },
+  "outputs": {
+    "answer_path": "runs/20260410T035124Z-query-054da7ab/artifacts/query-answer.md",
+    "host_task_path": "runs/20260410T035124Z-query-054da7ab/host-tasks/query-codex.json",
+    "matched_pages": [
+      "vault/sources/openai-harness-engineering.md",
+      "vault/README.md"
+    ],
+    "staged_path": "staging/queries/codex-tellme.md"
+  },
+  "run_id": "20260410T035124Z-query-054da7ab",
+  "started_at": "2026-04-10T03:51:24.780267+00:00",
+  "status": "succeeded"
+}

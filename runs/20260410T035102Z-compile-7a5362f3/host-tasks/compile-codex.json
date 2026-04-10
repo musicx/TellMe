@@ -1,0 +1,19 @@
+{
+  "allowed_read_roots": [
+    "raw",
+    "state",
+    "vault"
+  ],
+  "allowed_write_roots": [
+    "staging",
+    "runs"
+  ],
+  "command": "compile",
+  "expected_output": "artifacts/compile-result.json",
+  "host": "codex",
+  "inputs": [
+    "raw/openai-harness-engineering.md"
+  ],
+  "run_id": "20260410T035102Z-compile-7a5362f3",
+  "schema_version": 1
+}

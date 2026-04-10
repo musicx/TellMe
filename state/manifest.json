@@ -1,0 +1,45 @@
+{
+  "indexes": {},
+  "links": {},
+  "pages": {
+    "staging/codex/openai-harness-engineering-codex-notes.md": {
+      "last_host": "codex",
+      "last_run_id": "20260410T035124Z-compile-5f2d3f5d",
+      "page_type": "synthesis",
+      "path": "staging/codex/openai-harness-engineering-codex-notes.md",
+      "published_path": null,
+      "sha256": "6832bce1e80d8be674c3b8685c5a827502cc77ae9974c7f9d0e34e3bba465975",
+      "sources": [
+        "raw/openai-harness-engineering.md"
+      ],
+      "staged_path": "staging/codex/openai-harness-engineering-codex-notes.md",
+      "status": "staged"
+    },
+    "vault/sources/openai-harness-engineering.md": {
+      "last_host": "codex",
+      "last_run_id": "20260410T035102Z-compile-7a5362f3",
+      "page_type": "source_summary",
+      "path": "vault/sources/openai-harness-engineering.md",
+      "published_path": "vault/sources/openai-harness-engineering.md",
+      "sha256": "8c09f0f67b3ced234acd77f8959a0e5b6f13af7342d5c7ff6068c72f5e337f40",
+      "sources": [
+        "raw/openai-harness-engineering.md"
+      ],
+      "staged_path": null,
+      "status": "published"
+    }
+  },
+  "schema_version": 1,
+  "sources": {
+    "raw/openai-harness-engineering.md": {
+      "original_path": "raw/openai-harness-engineering.md",
+      "path": "raw/openai-harness-engineering.md",
+      "raw_path": "raw/openai-harness-engineering.md",
+      "registered_at": "2026-04-10T03:51:02.111547+00:00",
+      "registration_run_id": "20260410T035102Z-ingest-765c00ef",
+      "sha256": "c2b0f6c9751fa742660ee2cf010f5c5db4be0101f37075bfa5045d7d14f8641f",
+      "source_type": "file",
+      "status": "analyzed"
+    }
+  }
+}

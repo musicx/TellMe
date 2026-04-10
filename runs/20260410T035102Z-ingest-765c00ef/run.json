@@ -1,0 +1,14 @@
+{
+  "command": "ingest",
+  "completed_at": "2026-04-10T03:51:02.113765+00:00",
+  "host": "codex",
+  "inputs": {
+    "source": "C:\\Users\\musicx\\AppData\\Local\\Temp\\tellme-openai-article-0bb51f3a11fc4544bfabc0d187e24a2e\\openai-harness-engineering.md"
+  },
+  "outputs": {
+    "source": "raw/openai-harness-engineering.md"
+  },
+  "run_id": "20260410T035102Z-ingest-765c00ef",
+  "started_at": "2026-04-10T03:51:02.087281+00:00",
+  "status": "succeeded"
+}

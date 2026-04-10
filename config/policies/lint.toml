@@ -1,0 +1,3 @@
+[lint]
+check_page_hash_drift = true
+check_running_runs = true

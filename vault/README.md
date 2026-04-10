@@ -1,3 +1,10 @@
+---
+page_type: vault_readme
+status: published
+sources: [AGENTS.md]
+last_host: codex
+---
+
 # Published Vault
 
 本目录用于存放已发布到 Obsidian 的 wiki 内容。
