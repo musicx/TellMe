@@ -86,7 +86,7 @@
     {
       "id": "task-4",
       "title": "Generate Obsidian IDE index pages",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         "task-1",
         "task-3"
@@ -105,7 +105,9 @@
       ],
       "verification": [
         "python -m pytest tests/test_indexes.py tests/test_cli.py -q"
-      ]
+      ],
+      "completed_at": "2026-04-10",
+      "completion_evidence": "python -m pytest tests/test_indexes.py tests/test_publish.py tests/test_cli.py -q -> 21 passed"
     },
     {
       "id": "task-5",

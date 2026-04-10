@@ -153,6 +153,14 @@ class ProjectState:
     def pages(self) -> dict[str, dict[str, Any]]:
         return dict(self._payload.get("pages", {}))
 
+    def upsert_index(self, index: dict[str, Any]) -> None:
+        index_id = str(index["id"])
+        self._payload.setdefault("indexes", {})[index_id] = dict(index)
+        self._save()
+
+    def indexes(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("indexes", {}))
+
     def upsert_node(self, node: dict[str, Any]) -> None:
         node_id = str(node["id"])
         self._payload.setdefault("nodes", {})[node_id] = dict(node)

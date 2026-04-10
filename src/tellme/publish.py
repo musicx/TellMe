@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import ProjectRuntime
+from .indexes import generate_vault_indexes
 from .state import ContentStatus, PageRecord, ProjectState
 
 
@@ -76,6 +77,9 @@ def publish_staged_graph(
             run_id=run_id,
         )
         published_pages.append(vault_rel)
+
+    if staged_path is None:
+        generate_vault_indexes(runtime=runtime, run_id=run_id, host=host)
 
     return PublishResult(published_pages=published_pages)
 

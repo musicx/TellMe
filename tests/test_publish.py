@@ -95,6 +95,8 @@ def test_publish_all_publishes_staged_synthesis_page(tmp_path: Path) -> None:
     assert state.get_page("vault/synthesis/alpha-context.md").status == ContentStatus.PUBLISHED
     assert state.syntheses()["synthesis:alpha-context"]["status"] == "published"
     assert state.syntheses()["synthesis:alpha-context"]["published_path"] == "vault/synthesis/alpha-context.md"
+    assert (runtime.vault_dir / "index.md").is_file()
+    assert (runtime.vault_dir / "indexes" / "synthesis.md").is_file()
 
 
 def test_publish_all_publishes_staged_output_page(tmp_path: Path) -> None:
