@@ -10,6 +10,7 @@ from .codex import CodexResultError, consume_codex_result, create_codex_handoff
 from .compiler import compile_sources
 from .config import load_runtime
 from .hosts import KNOWN_HOSTS
+from .health import create_health_handoff
 from .ingest import ingest_file
 from .linting import lint_vault
 from .project import init_project
@@ -49,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_parser.set_defaults(handler=_handle_ingest)
 
     lint_parser = subparsers.add_parser("lint", help="Run static vault checks")
+    lint_parser.add_argument(
+        "--health-handoff",
+        action="store_true",
+        help="Create an LLM-readable health reflection task instead of running static lint",
+    )
     lint_parser.set_defaults(handler=_handle_lint)
 
     reconcile_parser = subparsers.add_parser("reconcile", help="Reconcile vault drift into state")
@@ -139,6 +145,14 @@ def _handle_lint(args: argparse.Namespace) -> int:
     runs = RunStore(runtime.runs_dir)
 
     def operation(run):
+        if args.health_handoff:
+            result = create_health_handoff(runtime=runtime, run_id=run.run_id, host=args.host)
+            return {
+                "task_json_path": result.task_json_path,
+                "task_markdown_path": result.task_markdown_path,
+                "result_template_path": result.result_template_path,
+                "issues": [],
+            }
         result = lint_vault(runtime, current_run_id=run.run_id)
         return {
             "issues": [
@@ -161,6 +175,12 @@ def _handle_lint(args: argparse.Namespace) -> int:
         operation=operation,
     )
     issues = run.outputs.get("issues", [])
+    if args.health_handoff:
+        print("tellme lint: health task")
+        print(run.outputs["task_markdown_path"])
+        print("tellme lint: result template")
+        print(run.outputs["result_template_path"])
+        return 0
     if not issues:
         print(f"tellme lint: no issues in {runtime.vault_dir}")
         return 0

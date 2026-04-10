@@ -341,6 +341,20 @@ def test_cli_publish_all_publishes_staged_query_synthesis(tmp_path: Path, monkey
     assert (data_root / "vault" / "synthesis" / "alpha.md").is_file()
 
 
+def test_cli_lint_health_handoff_writes_host_task(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+
+    result = run_cli("--project", str(project_root), "--host", "codex", "lint", "--health-handoff", cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert "tellme lint: health task" in result.stdout
+    task_line = next(line for line in result.stdout.splitlines() if line.endswith("health-codex.md"))
+    assert (data_root / task_line).is_file()
+
+
 def test_cli_compile_handoff_requires_codex_host(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
