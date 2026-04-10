@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import os
+import json
 from pathlib import Path
 
 
@@ -109,3 +110,60 @@ def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(tm
     assert "tellme compile: published 0 page(s)" in result.stdout
     assert "tellme compile: staged 1 page(s)" in result.stdout
     assert "staging/sources/source.md" in result.stdout
+
+
+def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nCodex handoff source.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+
+    handoff = run_cli("--project", str(project_root), "--host", "codex", "compile", "--handoff", cwd=tmp_path)
+
+    assert handoff.returncode == 0, handoff.stderr
+    assert "tellme compile: codex task" in handoff.stdout
+    task_line = next(line for line in handoff.stdout.splitlines() if line.endswith("compile-codex.md"))
+    assert (project_root / task_line).is_file()
+
+    staged = project_root / "staging" / "codex" / "draft.md"
+    staged.parent.mkdir(parents=True)
+    staged.write_text("---\npage_type: synthesis\nsources:\n  - raw/source.md\n---\n# Draft", encoding="utf-8")
+    result_path = project_root / "runs" / "codex-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "succeeded",
+                "host": "codex",
+                "run_id": "handoff-run",
+                "output_path": "staging/codex/draft.md",
+                "source_references": ["raw/source.md"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    consumed = run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "compile",
+        "--consume-result",
+        "runs/codex-result.json",
+        cwd=tmp_path,
+    )
+
+    assert consumed.returncode == 0, consumed.stderr
+    assert "tellme compile: consumed codex result staging/codex/draft.md" in consumed.stdout
+
+
+def test_cli_compile_handoff_requires_codex_host(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+
+    result = run_cli("--project", str(project_root), "--host", "opencode", "compile", "--handoff", cwd=tmp_path)
+
+    assert result.returncode == 2
+    assert "--handoff and --consume-result require --host codex" in result.stderr

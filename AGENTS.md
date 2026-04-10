@@ -50,3 +50,12 @@ TellMe 是一个混合式 LLM-wiki 编排器：
 ## 当前阶段
 
 当前仓库处于本地 orchestrator V1 阶段。六个正式命令已有基础行为，但真实 LLM synthesis、宿主 CLI 自动调用、完整发布策略和深度 reconcile 仍是后续能力。若宿主继续实现代码，应先遵循 `docs/designs/2026-04-09-tellme-intital-design.md` 中的边界，不要绕开既定目录分层与配置模型。
+
+## Codex 协作约束
+
+Codex 参与内容生成时应优先使用 TellMe 的文件型 handoff：
+
+1. 由用户或宿主运行 `tellme --host codex compile --handoff`。
+2. Codex 读取 `runs/<run-id>/host-tasks/compile-codex.md`。
+3. Codex 只写入 `staging/` 和 `runs/`，不得直接修改 `raw/` 或发布到 `vault/`。
+4. Codex 写完候选 Markdown 和 result JSON 后，由 `tellme --host codex compile --consume-result <result.json>` 登记状态。

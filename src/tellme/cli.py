@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .codex import CodexResultError, consume_codex_result, create_codex_handoff
 from .compiler import compile_sources
 from .config import load_runtime
 from .hosts import KNOWN_HOSTS
@@ -53,6 +54,16 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile_parser.set_defaults(handler=_handle_reconcile)
 
     compile_parser = subparsers.add_parser("compile", help="Compile registered sources into vault pages")
+    compile_mode = compile_parser.add_mutually_exclusive_group()
+    compile_mode.add_argument(
+        "--handoff",
+        action="store_true",
+        help="Create a Codex-readable compile task without local compile output",
+    )
+    compile_mode.add_argument(
+        "--consume-result",
+        help="Consume a Codex result JSON and register its staged output",
+    )
     compile_parser.set_defaults(handler=_handle_compile)
 
     query_parser = subparsers.add_parser("query", help="Query published vault content")
@@ -179,9 +190,33 @@ def _handle_compile(args: argparse.Namespace) -> int:
     runtime = _load_runtime_from_args(args)
     if runtime is None:
         return 2
+    if (args.handoff or args.consume_result) and args.host != "codex":
+        print("--handoff and --consume-result require --host codex", file=sys.stderr)
+        return 2
     runs = RunStore(runtime.runs_dir)
 
     def operation(run):
+        if args.handoff:
+            result = create_codex_handoff(runtime=runtime, run_id=run.run_id)
+            return {
+                "task_json_path": result.task_json_path,
+                "task_markdown_path": result.task_markdown_path,
+                "result_template_path": result.result_template_path,
+                "source_references": result.source_references,
+            }
+        if args.consume_result:
+            result_path = Path(args.consume_result)
+            if not result_path.is_absolute():
+                result_path = runtime.project_root / result_path
+            result = consume_codex_result(
+                runtime=runtime,
+                result_path=result_path,
+                consume_run_id=run.run_id,
+            )
+            return {
+                "staged_page": result.staged_page,
+                "source_references": result.source_references,
+            }
         result = compile_sources(runtime=runtime, run_id=run.run_id, host=args.host)
         return {
             "published_pages": result.published_pages,
@@ -190,14 +225,27 @@ def _handle_compile(args: argparse.Namespace) -> int:
             "artifact_path": result.artifact_path,
         }
 
-    run = run_workflow(
-        project_root=runtime.project_root,
-        runs=runs,
-        command="compile",
-        host=args.host,
-        inputs={},
-        operation=operation,
-    )
+    try:
+        run = run_workflow(
+            project_root=runtime.project_root,
+            runs=runs,
+            command="compile",
+            host=args.host,
+            inputs={},
+            operation=operation,
+        )
+    except CodexResultError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    if args.handoff:
+        print("tellme compile: codex task")
+        print(run.outputs["task_markdown_path"])
+        print("tellme compile: result template")
+        print(run.outputs["result_template_path"])
+        return 0
+    if args.consume_result:
+        print(f"tellme compile: consumed codex result {run.outputs['staged_page']}")
+        return 0
     published_pages = run.outputs.get("published_pages", [])
     staged_pages = run.outputs.get("staged_pages", [])
     print(f"tellme compile: published {len(published_pages)} page(s)")
