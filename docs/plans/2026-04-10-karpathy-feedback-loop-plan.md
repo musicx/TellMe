@@ -1,6 +1,6 @@
 ---
 title: Karpathy Feedback Loop Implementation Plan
-status: planned
+status: completed
 date: 2026-04-10
 design:
   - docs/designs/2026-04-10-karpathy-llm-wiki-design-update.md
@@ -48,12 +48,12 @@ Out of scope:
 
 ## Implementation Units
 
-- [ ] Unit 1: State model for outputs, syntheses, and health findings.
-- [ ] Unit 2: Query stage output becomes synthesis/output candidate.
-- [ ] Unit 3: Publish supports synthesis/output pages and remains idempotent.
-- [ ] Unit 4: Generate Obsidian IDE index pages from state.
-- [ ] Unit 5: Health/reflection handoff task generation.
-- [ ] Unit 6: README/AGENTS usage updates and full verification.
+- [x] Unit 1: State model for outputs, syntheses, and health findings.
+- [x] Unit 2: Query stage output becomes synthesis/output candidate.
+- [x] Unit 3: Publish supports synthesis/output pages and remains idempotent.
+- [x] Unit 4: Generate Obsidian IDE index pages from state.
+- [x] Unit 5: Health/reflection handoff task generation.
+- [x] Unit 6: README/AGENTS usage updates and full verification.
 
 ## Unit 1: State Model For Outputs, Syntheses, And Health Findings
 

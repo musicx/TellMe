@@ -1,6 +1,6 @@
 ---
 title: Karpathy-Informed LLM-Wiki Design Update
-status: approved_by_user_for_planning
+status: partially_implemented
 date: 2026-04-10
 source_material:
   - docs/designs/2026-04-02-twitter-from-karpathy.md
@@ -122,7 +122,7 @@ These pages are derived outputs. They should be regenerated safely from state an
 
 ## Human Review Summary
 
-This update does not replace the graph candidate architecture. It extends it with Karpathy's strongest product loop: LLM queries and health checks should continuously improve the markdown wiki. The immediate next implementation should make query outputs fileable as synthesis candidates, publish those candidates into `vault/synthesis/`, and generate basic Obsidian index pages from state.
+This update does not replace the graph candidate architecture. It extends it with Karpathy's strongest product loop: LLM queries and health checks should continuously improve the markdown wiki. The first implementation has made query outputs fileable as synthesis candidates, publishes synthesis/output pages into `vault/`, generates basic Obsidian index pages from state, and adds `lint --health-handoff` for LLM health/reflection tasks. Remaining work is deeper health result consumption, richer review UX, asset support, and host CLI automation.
 
 ## Unresolved Design Questions
 

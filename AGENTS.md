@@ -43,10 +43,10 @@ Karpathy LLM-wiki 对齐要求 TellMe 还应支持探索结果累积：query/out
 - `tellme init`: 初始化项目、配置、目录和宿主适配文件
 - `tellme ingest`: 注册并分析原始资料
 - `tellme compile`: 从 `raw/` 生成或更新知识点、claim、relation、conflict 等 graph 候选内容
-- `tellme query`: 基于已发布内容回答问题，并可回写结果
-- `tellme lint`: 检查断链、孤儿页、frontmatter、索引漂移、来源缺失
+- `tellme query`: 基于已发布内容回答问题；`--stage` 可生成 source-backed synthesis candidate
+- `tellme lint`: 检查断链、孤儿页、frontmatter、索引漂移、来源缺失；`--health-handoff` 可生成 LLM health/reflection 任务
 - `tellme reconcile`: 扫描宿主直接修改并修正状态与索引
-- `tellme publish`: 将已审核的 staged graph node 发布到 `vault/`
+- `tellme publish`: 将已审核的 staged graph node、synthesis、output 发布到 `vault/`，并刷新 Obsidian index pages
 
 ## 文档入口
 
@@ -57,7 +57,7 @@ Karpathy LLM-wiki 对齐要求 TellMe 还应支持探索结果累积：query/out
 
 ## 当前阶段
 
-当前仓库处于本地 orchestrator V1 阶段。七个正式命令已有基础行为，Codex handoff/consume 已接入第一版 graph candidate protocol，handoff 会暴露已有 graph nodes，consume 会标记 `create_new` 或 `enrich_existing`，并将 concept/entity 节点、claims、relations、conflicts 写入 state，把节点页面与 conflict 解释候选投影到 `staging/` 后通过 `publish` 发布 graph node 到 `vault/`。真实 LLM synthesis、宿主 CLI 自动调用、复杂 review workflow、冲突解释深化和深度 reconcile 仍是后续能力。若宿主继续实现代码，应先遵循 `docs/designs/2026-04-10-knowledge-graph-mvp-redesign.md` 中的边界，不要绕开既定目录分层与配置模型。
+当前仓库处于本地 orchestrator V1 阶段。七个正式命令已有基础行为，Codex handoff/consume 已接入第一版 graph candidate protocol，handoff 会暴露已有 graph nodes，consume 会标记 `create_new` 或 `enrich_existing`，并将 concept/entity 节点、claims、relations、conflicts 写入 state。Karpathy feedback loop 的第一版也已具备：`query --stage` 生成 synthesis candidate，`publish --all` 发布 graph/synthesis/output 并刷新 Obsidian indexes，`lint --health-handoff` 生成 LLM health/reflection 任务。真实 LLM synthesis、宿主 CLI 自动调用、复杂 review workflow、冲突解释深化和深度 reconcile 仍是后续能力。若宿主继续实现代码，应先遵循 `docs/designs/2026-04-10-knowledge-graph-mvp-redesign.md` 中的边界，不要绕开既定目录分层与配置模型。
 
 ## Codex 协作约束
 
