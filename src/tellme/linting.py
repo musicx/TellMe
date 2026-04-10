@@ -62,6 +62,26 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
                         "Known page hash differs from state; run tellme reconcile if this is intentional.",
                     )
                 )
+        node_ids = set(state.nodes())
+        for relation in state.relations().values():
+            source = str(relation.get("source", ""))
+            target = str(relation.get("target", ""))
+            if source and source not in node_ids:
+                issues.append(
+                    LintIssue(
+                        "graph_broken_relation",
+                        str(relation.get("id", source)),
+                        f"Graph relation source node is missing: {source}",
+                    )
+                )
+            if target and target not in node_ids:
+                issues.append(
+                    LintIssue(
+                        "graph_broken_relation",
+                        str(relation.get("id", target)),
+                        f"Graph relation target node is missing: {target}",
+                    )
+                )
 
     if runtime.policies.get("lint", {}).get("check_running_runs", True):
         for run_json in sorted(runtime.runs_dir.glob("*/run.json")):

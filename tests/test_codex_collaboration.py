@@ -31,6 +31,8 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
     assert result.task_markdown_path == f"runs/{handoff_run.run_id}/host-tasks/compile-codex.md"
     assert result.result_template_path == f"runs/{handoff_run.run_id}/artifacts/codex-result.template.json"
     assert "TellMe Codex Compile Task" in task_markdown
+    assert "Produce a structured knowledge graph update candidate" in task_markdown
+    assert "concepts, claims, relations, and conflicts" in task_markdown
     assert "raw/source.md" in task_markdown
     assert "Do not modify `raw/`" in task_markdown
 
@@ -38,8 +40,10 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
     assert template["schema_version"] == 1
     assert template["host"] == "codex"
     assert template["run_id"] == handoff_run.run_id
-    assert template["output_path"].startswith("staging/codex/")
+    assert template["output_path"].startswith("staging/graph/candidates/")
     assert template["source_references"] == ["raw/source.md"]
+    assert template["graph_candidate"]["candidate_type"] == "knowledge_graph_update"
+    assert template["graph_candidate"]["nodes"] == []
 
 
 def test_consume_codex_result_registers_staged_page(tmp_path: Path) -> None:

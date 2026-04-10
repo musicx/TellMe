@@ -1,6 +1,6 @@
 ---
 title: TellMe Knowledge Graph MVP Redesign
-status: draft
+status: partially_implemented
 date: 2026-04-10
 origin: user_feedback_current_chat
 reference_summary: docs/analysis/reference-capability-summary-2026-04-10.md
@@ -118,12 +118,20 @@ TellMe remains the control plane:
 
 ## Next Implementation Target
 
-The next implementation should not add another source-summary feature. It should introduce the first graph candidate protocol:
+The first graph candidate protocol has now been introduced:
 
 - `GraphCandidate` JSON schema.
 - `compile --handoff` task wording updated for concept/claim/relation extraction.
 - `compile --consume-result` accepts graph candidate JSON and stages concept pages.
 - `state/manifest.json` gains graph sections for nodes, claims, relations, and conflicts.
 - `lint` checks graph candidates for source attribution and broken node links.
+
+Remaining implementation work:
+
+- Publish/review flow from staged graph updates into `vault/`.
+- Matching/enrichment against existing nodes before staging.
+- Conflict pages under `staging/conflicts/` with explanation candidates.
+- Host CLI invocation wrappers for Claude Code, Codex, and OpenCode instead of handoff files only.
+- Deeper reconcile that reads existing Obsidian graph pages back into graph state.
 
 This is the minimum path from current MVP mechanics toward the intended LLM-wiki product.

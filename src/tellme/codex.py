@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import ProjectRuntime
 from .files import atomic_write_json
+from .graph import GraphCandidateError, is_graph_candidate_path, stage_graph_candidate
 from .hosts import HostResult, HostTask, HostValidationError
 from .markdown import parse_frontmatter
 from .state import ContentStatus, PageRecord, ProjectState, SourceRecord
@@ -28,6 +29,7 @@ class CodexHandoffResult:
 class CodexConsumeResult:
     staged_page: str
     source_references: list[str]
+    staged_pages: list[str]
 
 
 def create_codex_handoff(runtime: ProjectRuntime, run_id: str) -> CodexHandoffResult:
@@ -56,8 +58,17 @@ def create_codex_handoff(runtime: ProjectRuntime, run_id: str) -> CodexHandoffRe
             "status": "succeeded",
             "host": "codex",
             "run_id": run_id,
-            "output_path": f"staging/codex/{run_id}.md",
+            "output_path": f"staging/graph/candidates/{run_id}.json",
             "source_references": source_references,
+            "graph_candidate": {
+                "schema_version": 1,
+                "candidate_type": "knowledge_graph_update",
+                "source_references": source_references,
+                "nodes": [],
+                "claims": [],
+                "relations": [],
+                "conflicts": [],
+            },
             "confidence": "review-required",
             "errors": [],
         },
@@ -94,6 +105,24 @@ def consume_codex_result(
     if not output_path.is_file():
         raise CodexResultError(f"codex output file not found: {result.output_path}")
 
+    if is_graph_candidate_path(output_path):
+        try:
+            graph_result = stage_graph_candidate(
+                runtime=runtime,
+                candidate_path=output_path,
+                host="codex",
+                run_id=consume_run_id,
+                expected_source_references=result.source_references,
+            )
+        except GraphCandidateError as exc:
+            raise CodexResultError(str(exc)) from exc
+        staged_page = graph_result.staged_pages[0] if graph_result.staged_pages else _relative(runtime.data_root, output_path)
+        return CodexConsumeResult(
+            staged_page=staged_page,
+            staged_pages=graph_result.staged_pages,
+            source_references=result.source_references,
+        )
+
     rel = _relative(runtime.data_root, output_path)
     frontmatter, _body = parse_frontmatter(output_path.read_text(encoding="utf-8"))
     page_type = str(frontmatter.get("page_type", "codex_candidate")) if frontmatter else "codex_candidate"
@@ -110,7 +139,7 @@ def consume_codex_result(
             staged_path=rel,
         )
     )
-    return CodexConsumeResult(staged_page=rel, source_references=result.source_references)
+    return CodexConsumeResult(staged_page=rel, staged_pages=[rel], source_references=result.source_references)
 
 
 def _task_markdown(task: HostTask, source_references: list[str]) -> str:
@@ -123,7 +152,7 @@ Host: `codex`
 
 ## Goal
 
-Create a reviewed Markdown candidate from the registered TellMe sources. Write your draft under `staging/codex/`, then write a result JSON artifact at `{task.expected_output}`.
+Produce a structured knowledge graph update candidate from the registered TellMe sources. Extract concepts, claims, relations, and conflicts; compare them with existing `vault/` graph pages when relevant; write the candidate JSON under `staging/graph/candidates/`, then write a result JSON artifact at `{task.expected_output}`.
 
 ## Allowed Read Roots
 
@@ -147,6 +176,15 @@ Do not publish directly to `vault/`.
 
 Use the template at `runs/{task.run_id}/artifacts/codex-result.template.json`.
 The final result JSON must include `schema_version`, `status`, `host`, `run_id`, `output_path`, and `source_references`.
+
+The `output_path` file must be a graph candidate JSON with:
+
+- `candidate_type: "knowledge_graph_update"`
+- `source_references`: raw evidence paths used by this candidate
+- `nodes`: concept/entity nodes with `id`, `kind`, `title`, `summary`, and `sources`
+- `claims`: atomic sourced statements with `id`, `subject`, `text`, and `sources`
+- `relations`: sourced edges with `source`, `target`, `type`, and `sources`
+- `conflicts`: apparent contradictions or tensions with source-backed explanation candidates
 """
 
 

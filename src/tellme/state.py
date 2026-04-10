@@ -153,12 +153,59 @@ class ProjectState:
     def pages(self) -> dict[str, dict[str, Any]]:
         return dict(self._payload.get("pages", {}))
 
+    def upsert_node(self, node: dict[str, Any]) -> None:
+        node_id = str(node["id"])
+        self._payload.setdefault("nodes", {})[node_id] = dict(node)
+        self._save()
+
+    def nodes(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("nodes", {}))
+
+    def upsert_claim(self, claim: dict[str, Any]) -> None:
+        claim_id = str(claim["id"])
+        self._payload.setdefault("claims", {})[claim_id] = dict(claim)
+        self._save()
+
+    def claims(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("claims", {}))
+
+    def upsert_relation(self, relation: dict[str, Any]) -> None:
+        relation_id = str(
+            relation.get("id")
+            or f"{relation['source']}->{relation['type']}->{relation['target']}"
+        )
+        payload = dict(relation)
+        payload["id"] = relation_id
+        self._payload.setdefault("relations", {})[relation_id] = payload
+        self._save()
+
+    def relations(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("relations", {}))
+
+    def upsert_conflict(self, conflict: dict[str, Any]) -> None:
+        conflict_id = str(conflict["id"])
+        self._payload.setdefault("conflicts", {})[conflict_id] = dict(conflict)
+        self._save()
+
+    def conflicts(self) -> dict[str, dict[str, Any]]:
+        return dict(self._payload.get("conflicts", {}))
+
     def _save(self) -> None:
         atomic_write_json(self.manifest_path, self._payload)
 
 
 def _empty_manifest() -> dict[str, Any]:
-    return {"schema_version": 1, "sources": {}, "pages": {}, "links": {}, "indexes": {}}
+    return {
+        "schema_version": 1,
+        "sources": {},
+        "pages": {},
+        "links": {},
+        "indexes": {},
+        "nodes": {},
+        "claims": {},
+        "relations": {},
+        "conflicts": {},
+    }
 
 
 def _normalize_manifest(payload: Any) -> dict[str, Any]:
@@ -169,7 +216,7 @@ def _normalize_manifest(payload: Any) -> dict[str, Any]:
         normalized["schema_version"] = normalized.pop("version")
     if "schema_version" not in normalized:
         raise StateFormatError("manifest.json is missing schema_version")
-    for key in ("sources", "pages", "links", "indexes"):
+    for key in ("sources", "pages", "links", "indexes", "nodes", "claims", "relations", "conflicts"):
         value = normalized.setdefault(key, {})
         if not isinstance(value, dict):
             raise StateFormatError(f"manifest.json field {key} must be an object")

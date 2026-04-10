@@ -173,6 +173,73 @@ def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path, monkeypatc
     assert "tellme compile: consumed codex result staging/codex/draft.md" in consumed.stdout
 
 
+def test_cli_compile_consumes_codex_graph_candidate(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nCodex graph candidate source.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+
+    handoff = run_cli("--project", str(project_root), "--host", "codex", "compile", "--handoff", cwd=tmp_path)
+
+    assert handoff.returncode == 0, handoff.stderr
+    candidate = data_root / "staging" / "graph" / "candidates" / "candidate.json"
+    candidate.parent.mkdir(parents=True)
+    candidate.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "knowledge_graph_update",
+                "source_references": ["raw/source.md"],
+                "nodes": [
+                    {
+                        "id": "concept:codex-graph-candidate",
+                        "kind": "concept",
+                        "title": "Codex Graph Candidate",
+                        "summary": "Structured candidate output from Codex.",
+                        "sources": ["raw/source.md"],
+                    }
+                ],
+                "claims": [],
+                "relations": [],
+                "conflicts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result_path = data_root / "runs" / "codex-graph-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "succeeded",
+                "host": "codex",
+                "run_id": "handoff-run",
+                "output_path": "staging/graph/candidates/candidate.json",
+                "source_references": ["raw/source.md"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    consumed = run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "compile",
+        "--consume-result",
+        "runs/codex-graph-result.json",
+        cwd=tmp_path,
+    )
+
+    assert consumed.returncode == 0, consumed.stderr
+    assert "tellme compile: consumed codex result staging/concepts/codex-graph-candidate.md" in consumed.stdout
+    assert (data_root / "staging" / "concepts" / "codex-graph-candidate.md").is_file()
+
+
 def test_cli_compile_handoff_requires_codex_host(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
