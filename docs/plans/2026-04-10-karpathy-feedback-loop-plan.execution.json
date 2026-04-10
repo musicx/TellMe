@@ -1,0 +1,158 @@
+{
+  "plan_id": "2026-04-10-karpathy-feedback-loop",
+  "plan_path": "docs/plans/2026-04-10-karpathy-feedback-loop-plan.md",
+  "design_paths": [
+    "docs/designs/2026-04-10-karpathy-llm-wiki-design-update.md",
+    "docs/designs/2026-04-10-knowledge-graph-mvp-redesign.md"
+  ],
+  "status": "planned",
+  "created_at": "2026-04-10",
+  "updated_at": "2026-04-10",
+  "human_design_approval": {
+    "status": "approved",
+    "approved_by": "user",
+    "user_approval_quote": "可以，更新我们的设计。并进行对实施计划的开发。"
+  },
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "State model for outputs, syntheses, and health findings",
+      "status": "pending",
+      "dependencies": [],
+      "files": [
+        "src/tellme/state.py",
+        "tests/test_state.py"
+      ],
+      "acceptance_criteria": [
+        "Manifest normalization creates outputs, syntheses, and health_findings sections.",
+        "Existing manifests without new sections remain loadable.",
+        "Upsert/read helpers preserve provenance and run metadata."
+      ],
+      "verification": [
+        "python -m pytest tests/test_state.py tests/test_config.py -q"
+      ]
+    },
+    {
+      "id": "task-2",
+      "title": "Query stage output becomes synthesis/output candidate",
+      "status": "pending",
+      "dependencies": [
+        "task-1"
+      ],
+      "files": [
+        "src/tellme/query.py",
+        "src/tellme/cli.py",
+        "tests/test_query.py",
+        "tests/test_cli.py"
+      ],
+      "acceptance_criteria": [
+        "query --stage writes source-backed synthesis candidates under staging/synthesis/.",
+        "Unsourced query output remains a run artifact and is not publishable.",
+        "CLI output reports staged synthesis candidate paths."
+      ],
+      "verification": [
+        "python -m pytest tests/test_query.py tests/test_cli.py -q"
+      ]
+    },
+    {
+      "id": "task-3",
+      "title": "Publish supports synthesis/output pages",
+      "status": "pending",
+      "dependencies": [
+        "task-1",
+        "task-2"
+      ],
+      "files": [
+        "src/tellme/publish.py",
+        "src/tellme/cli.py",
+        "tests/test_publish.py",
+        "tests/test_cli.py"
+      ],
+      "acceptance_criteria": [
+        "publish --all publishes staged synthesis and output pages to vault.",
+        "publish --all remains idempotent.",
+        "Conflict review pages are not auto-published."
+      ],
+      "verification": [
+        "python -m pytest tests/test_publish.py tests/test_cli.py -q"
+      ]
+    },
+    {
+      "id": "task-4",
+      "title": "Generate Obsidian IDE index pages",
+      "status": "pending",
+      "dependencies": [
+        "task-1",
+        "task-3"
+      ],
+      "files": [
+        "src/tellme/indexes.py",
+        "src/tellme/publish.py",
+        "src/tellme/cli.py",
+        "tests/test_indexes.py",
+        "tests/test_cli.py"
+      ],
+      "acceptance_criteria": [
+        "vault/index.md is generated from state.",
+        "vault/indexes/concepts.md, entities.md, synthesis.md, and unresolved-conflicts.md are generated.",
+        "Generated index pages link to known published pages and tolerate empty sections."
+      ],
+      "verification": [
+        "python -m pytest tests/test_indexes.py tests/test_cli.py -q"
+      ]
+    },
+    {
+      "id": "task-5",
+      "title": "Health/reflection handoff task generation",
+      "status": "pending",
+      "dependencies": [
+        "task-1",
+        "task-4"
+      ],
+      "files": [
+        "src/tellme/health.py",
+        "src/tellme/cli.py",
+        "tests/test_health.py",
+        "tests/test_linting.py",
+        "tests/test_cli.py"
+      ],
+      "acceptance_criteria": [
+        "CLI can create an LLM-readable health/reflection handoff task.",
+        "Health task includes graph summary, unresolved conflicts, orphan relations, and thin nodes.",
+        "Result template expects health findings under staging/health/."
+      ],
+      "verification": [
+        "python -m pytest tests/test_health.py tests/test_linting.py tests/test_cli.py -q"
+      ]
+    },
+    {
+      "id": "task-6",
+      "title": "Documentation and full verification",
+      "status": "pending",
+      "dependencies": [
+        "task-1",
+        "task-2",
+        "task-3",
+        "task-4",
+        "task-5"
+      ],
+      "files": [
+        "README.md",
+        "AGENTS.md",
+        "docs/designs/2026-04-10-karpathy-llm-wiki-design-update.md",
+        "docs/plans/2026-04-10-karpathy-feedback-loop-plan.execution.json"
+      ],
+      "acceptance_criteria": [
+        "Docs distinguish implemented behavior from future goals.",
+        "Usage examples remain accurate.",
+        "Full test and lint verification passes."
+      ],
+      "verification": [
+        "python -m pytest tests -q",
+        "python -m compileall src",
+        "$env:PYTHONPATH='src'; python -m tellme --machine windows-dev lint",
+        "python -m json.tool docs/plans/2026-04-10-karpathy-feedback-loop-plan.execution.json"
+      ]
+    }
+  ]
+}

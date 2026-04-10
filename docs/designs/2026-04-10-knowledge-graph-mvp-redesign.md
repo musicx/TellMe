@@ -4,6 +4,7 @@ status: partially_implemented
 date: 2026-04-10
 origin: user_feedback_current_chat
 reference_summary: docs/analysis/reference-capability-summary-2026-04-10.md
+karpathy_alignment: docs/designs/2026-04-10-karpathy-llm-wiki-design-update.md
 owner_mode: engineering-led
 ---
 
@@ -116,6 +117,16 @@ TellMe remains the control plane:
 - Adopt `second-brain` host-neutral usage model.
 - Adopt `llm-wiki-plugin` single-command routing style.
 
+## Karpathy LLM-Wiki Alignment
+
+Karpathy's LLM-wiki note is now an accepted design input. It validates the graph-first direction and adds three product requirements:
+
+- Obsidian should act as the IDE surface for raw evidence, compiled graph pages, staged review material, and generated outputs.
+- Query outputs should be fileable back into the wiki as durable synthesis or output candidates.
+- LLM health checks should propose missing knowledge, contradictions, weak links, and new article candidates instead of only reporting static lint failures.
+
+The detailed update is captured in `docs/designs/2026-04-10-karpathy-llm-wiki-design-update.md`.
+
 ## Next Implementation Target
 
 The first graph candidate protocol has now been introduced:
@@ -131,6 +142,9 @@ The first graph candidate protocol has now been introduced:
 
 Remaining implementation work:
 
+- Query/output filing loop: staged synthesis/output candidates and publish support.
+- Generated Obsidian IDE indexes: `vault/index.md` and `vault/indexes/*.md`.
+- LLM health/reflection candidate flow for gaps, duplicates, weak links, and new article candidates.
 - Rich review workflow for selecting, rejecting, or editing individual staged graph updates.
 - Deeper semantic matching/enrichment beyond exact node-id matches.
 - Conflict resolution workflow after `staging/conflicts/` review.
