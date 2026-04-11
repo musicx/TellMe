@@ -78,9 +78,9 @@ def _reader_facing_pages(state: ProjectState) -> list[tuple[str, str]]:
 
     pages: list[tuple[str, str]] = [("vault/index.md", _overview_page(themes, references))]
     for theme_name, theme in sorted(themes.items()):
-        pages.append((f"vault/{theme['path']}", _theme_page(theme_name, theme)))
+        pages.append((f"vault/{theme['path']}", _theme_page(theme_name, theme, state)))
         for subtheme_name, subtheme in sorted(theme["subthemes"].items()):
-            pages.append((f"vault/{subtheme['path']}", _subtheme_page(theme_name, subtheme_name, subtheme)))
+            pages.append((f"vault/{subtheme['path']}", _subtheme_page(theme_name, subtheme_name, subtheme, state)))
     for reference in references:
         if reference["path"]:
             pages.append((reference["path"], _reference_page(reference["node"], state)))
@@ -138,18 +138,41 @@ def _reference_nodes(published_nodes: list[dict]) -> list[dict]:
 
 
 def _overview_page(themes: dict[str, dict], references: list[dict]) -> str:
-    lines = ["## Themes", ""]
+    lines = [
+        "## Summary",
+        "",
+        _overview_summary(themes),
+        "",
+        "## Recommended Reading Path",
+        "",
+    ]
+    if not themes:
+        lines.append("No reader-facing themes yet.")
+    else:
+        for theme_name, theme in sorted(themes.items(), key=lambda item: (-len(item[1]["nodes"]), item[0].lower())):
+            lines.append(f"1. [{theme_name}]({theme['path']})")
+    lines.extend(["", "## Theme Map", ""])
     if not themes:
         lines.append("No reader-facing themes yet.")
     else:
         for theme_name, theme in sorted(themes.items()):
             lines.append(f"- [{theme_name}]({theme['path']})")
+            if theme["subthemes"]:
+                for subtheme_name, subtheme in sorted(theme["subthemes"].items()):
+                    lines.append(f"- [{subtheme_name}]({subtheme['path']})")
     lines.extend(["", "## Key References", ""])
     if not references:
         lines.append("No promoted reference pages yet.")
     else:
         for reference in references:
             lines.append(f"- [{reference['title']}]({reference['link']})")
+    lines.extend(["", "## Thin Areas", ""])
+    thin_areas = _thin_areas(themes)
+    if not thin_areas:
+        lines.append("No obvious thin areas yet.")
+    else:
+        for area in thin_areas:
+            lines.append(f"- {area}")
     lines.extend(
         [
             "",
@@ -165,8 +188,23 @@ def _overview_page(themes: dict[str, dict], references: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _theme_page(theme_name: str, theme: dict) -> str:
-    lines = ["## Subthemes", ""]
+def _theme_page(theme_name: str, theme: dict, state: ProjectState) -> str:
+    lines = [
+        "## Summary",
+        "",
+        _theme_summary(theme_name, theme),
+        "",
+        "## Why This Theme Matters",
+        "",
+        _theme_importance(theme_name, theme),
+        "",
+        "## Core Question",
+        "",
+        f"What does {theme_name} mean in this knowledge base, and how do its subtopics fit together?",
+        "",
+        "## Subthemes",
+        "",
+    ]
     if not theme["subthemes"]:
         lines.append("No subthemes yet.")
     else:
@@ -183,29 +221,73 @@ def _theme_page(theme_name: str, theme: dict) -> str:
             lines.append(
                 f"- [{node['title']}](../references/{_slug(Path(str(node.get('published_path', node['id']))).stem)}.md)"
             )
+    lines.extend(["", "## Key Claims", ""])
+    claim_lines = _claim_lines(theme["nodes"], state)
+    if not claim_lines:
+        lines.append("No key claims yet.")
+    else:
+        lines.extend(claim_lines)
+    lines.extend(["", "## Relationships", ""])
+    relationship_lines = _relationship_lines(theme["nodes"], state)
+    if not relationship_lines:
+        lines.append("No explicit relationships yet.")
+    else:
+        lines.extend(relationship_lines)
     lines.extend(["", "## Coverage", ""])
     for node in sorted(theme["nodes"], key=lambda item: str(item.get("title", "")).lower()):
         lines.append(f"### {node['title']}")
         lines.append("")
         lines.append(str(node.get("summary", "No summary available.")))
         lines.append("")
+    lines.extend(["## Evidence", ""])
+    theme_sources = sorted({source for node in theme["nodes"] for source in node.get("sources", [])})
+    if not theme_sources:
+        lines.append("No evidence sources yet.")
+    else:
+        for source in theme_sources:
+            lines.append(f"- `{source}`")
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _subtheme_page(theme_name: str, subtheme_name: str, subtheme: dict) -> str:
+def _subtheme_page(theme_name: str, subtheme_name: str, subtheme: dict, state: ProjectState) -> str:
     lines = [
+        "## Summary",
+        "",
+        _subtheme_summary(subtheme_name, subtheme),
+        "",
+        "## How This Fits",
+        "",
+        f"{subtheme_name} is one part of {theme_name} and should be read as a focused slice of that larger theme.",
+        "",
         "## Parent Theme",
         "",
         f"- [{theme_name}](../themes/{_slug(theme_name)}.md)",
         "",
-        "## Covered Knowledge",
+        "## Key Claims",
         "",
     ]
+    claim_lines = _claim_lines(subtheme["nodes"], state)
+    if not claim_lines:
+        lines.append("No key claims yet.")
+    else:
+        lines.extend(claim_lines)
+    lines.extend([
+        "",
+        "## Covered Knowledge",
+        "",
+    ])
     for node in sorted(subtheme["nodes"], key=lambda item: str(item.get("title", "")).lower()):
         lines.append(f"### {node['title']}")
         lines.append("")
         lines.append(str(node.get("summary", "No summary available.")))
         lines.append("")
+    lines.extend(["## Evidence", ""])
+    subtheme_sources = sorted({source for node in subtheme["nodes"] for source in node.get("sources", [])})
+    if not subtheme_sources:
+        lines.append("No evidence sources yet.")
+    else:
+        for source in subtheme_sources:
+            lines.append(f"- `{source}`")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -230,6 +312,31 @@ def _reference_page(node: dict, state: ProjectState) -> str:
     for source in node.get("sources", []):
         lines.append(f"- `{source}`")
     return "\n".join(lines) + "\n"
+
+
+def _claim_lines(nodes: list[dict], state: ProjectState) -> list[str]:
+    node_ids = {str(node.get("id", "")) for node in nodes}
+    claims = [
+        claim for claim in state.claims().values() if str(claim.get("subject", "")) in node_ids
+    ]
+    return [f"- {claim['text']}" for claim in claims]
+
+
+def _relationship_lines(nodes: list[dict], state: ProjectState) -> list[str]:
+    node_ids = {str(node.get("id", "")) for node in nodes}
+    titles = {
+        str(node.get("id", "")): str(node.get("title", node.get("id", "Untitled")))
+        for node in state.nodes().values()
+    }
+    relations = [
+        relation for relation in state.relations().values() if str(relation.get("source", "")) in node_ids
+    ]
+    lines: list[str] = []
+    for relation in relations:
+        target_id = str(relation.get("target", ""))
+        target_title = titles.get(target_id, target_id)
+        lines.append(f"- {titles.get(str(relation['source']), str(relation['source']))} {relation['type']} {target_title}")
+    return lines
 
 
 def _node_index(title: str, kind: str, nodes: dict[str, dict]) -> str:
@@ -345,3 +452,45 @@ def _relative_link(from_rel: str, to_rel: str) -> str:
 def _slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-").lower()
     return slug or "page"
+
+
+def _overview_summary(themes: dict[str, dict]) -> str:
+    if not themes:
+        return "No reader-facing themes have been organized yet."
+    names = sorted(themes)
+    if len(names) == 1:
+        return f"This knowledge base is currently organized around the theme {names[0]}."
+    preview = ", ".join(names[:3])
+    return f"This knowledge base is currently organized around the themes {preview}."
+
+
+def _thin_areas(themes: dict[str, dict]) -> list[str]:
+    areas: list[str] = []
+    for theme_name, theme in sorted(themes.items()):
+        if len(theme["nodes"]) <= 1:
+            areas.append(f"{theme_name} has very little published coverage.")
+        if not theme["subthemes"]:
+            areas.append(f"{theme_name} has no subthemes yet.")
+    return areas
+
+
+def _theme_summary(theme_name: str, theme: dict) -> str:
+    node_titles = [str(node.get("title", "Untitled")) for node in theme["nodes"]]
+    if not node_titles:
+        return f"{theme_name} does not have any published knowledge yet."
+    preview = ", ".join(node_titles[:3])
+    return f"{theme_name} currently organizes knowledge around {preview}."
+
+
+def _theme_importance(theme_name: str, theme: dict) -> str:
+    node_titles = [str(node.get("title", "Untitled")) for node in theme["nodes"]]
+    preview = ", ".join(node_titles[:2]) if node_titles else theme_name
+    return f"This theme matters because it groups together the key ideas and references around {preview}."
+
+
+def _subtheme_summary(subtheme_name: str, subtheme: dict) -> str:
+    node_titles = [str(node.get("title", "Untitled")) for node in subtheme["nodes"]]
+    if not node_titles:
+        return f"{subtheme_name} does not have any published knowledge yet."
+    preview = ", ".join(node_titles[:3])
+    return f"{subtheme_name} focuses on {preview}."
