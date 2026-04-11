@@ -94,6 +94,47 @@ def test_generate_vault_indexes_handles_empty_state(tmp_path: Path) -> None:
     assert "No reader-facing themes yet." in root
 
 
+def test_generate_vault_indexes_removes_stale_reader_facing_pages(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    stale_theme = runtime.vault_dir / "themes" / "old-theme.md"
+    stale_theme.parent.mkdir(parents=True, exist_ok=True)
+    stale_theme.write_text("# Old Theme\n", encoding="utf-8")
+    state = ProjectState.load(runtime.state_dir)
+    state.upsert_page(
+        PageRecord(
+            path="vault/themes/old-theme.md",
+            page_type="theme",
+            status=ContentStatus.PUBLISHED,
+            sha256="seed",
+            sources=[],
+            last_host="codex",
+            last_run_id="seed-run",
+            published_path="vault/themes/old-theme.md",
+        )
+    )
+    state.upsert_index(
+        {
+            "id": "vault/themes/old-theme.md",
+            "path": "vault/themes/old-theme.md",
+            "title": "Old Theme",
+            "status": "published",
+            "last_host": "codex",
+            "last_run_id": "seed-run",
+            "published_path": "vault/themes/old-theme.md",
+        }
+    )
+    _seed_index_state(runtime)
+
+    generate_vault_indexes(runtime=runtime, run_id="index-run", host="codex")
+
+    assert not stale_theme.exists()
+    refreshed = ProjectState.load(runtime.state_dir)
+    assert "vault/themes/old-theme.md" not in refreshed.pages()
+    assert "vault/themes/old-theme.md" not in refreshed.indexes()
+
+
 def _seed_index_state(runtime) -> None:
     state = ProjectState.load(runtime.state_dir)
     state.upsert_node(

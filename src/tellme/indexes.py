@@ -29,6 +29,8 @@ def generate_vault_indexes(
         ("vault/indexes/unresolved-conflicts.md", _conflict_index(state.conflicts())),
         ("vault/indexes/health-review.md", _health_review_index(state.health_findings())),
     ]
+    if include_reader_facing:
+        _cleanup_stale_reader_facing_pages(runtime=runtime, state=state, desired_paths={rel for rel, _body in pages})
     written: list[str] = []
 
     for rel, body in pages:
@@ -463,6 +465,24 @@ def _relative_link(from_rel: str, to_rel: str) -> str:
 def _slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-").lower()
     return slug or "page"
+
+
+def _cleanup_stale_reader_facing_pages(
+    runtime: ProjectRuntime,
+    state: ProjectState,
+    desired_paths: set[str],
+) -> None:
+    managed_prefixes = ("vault/themes/", "vault/subthemes/", "vault/references/")
+    for rel_path in list(state.pages()):
+        if not rel_path.startswith(managed_prefixes):
+            continue
+        if rel_path in desired_paths:
+            continue
+        file_path = runtime.data_root / rel_path
+        if file_path.exists():
+            file_path.unlink()
+        state.delete_page(rel_path)
+        state.delete_index(rel_path)
 
 
 def _overview_summary(themes: dict[str, dict]) -> str:
