@@ -15,9 +15,14 @@ class IndexResult:
     index_pages: list[str]
 
 
-def generate_vault_indexes(runtime: ProjectRuntime, run_id: str, host: str) -> IndexResult:
+def generate_vault_indexes(
+    runtime: ProjectRuntime,
+    run_id: str,
+    host: str,
+    include_reader_facing: bool = True,
+) -> IndexResult:
     state = ProjectState.load(runtime.state_dir)
-    pages = _reader_facing_pages(state) + [
+    pages = ([] if not include_reader_facing else _reader_facing_pages(state)) + [
         ("vault/indexes/concepts.md", _node_index("Concepts", "concept", state.nodes())),
         ("vault/indexes/entities.md", _node_index("Entities", "entity", state.nodes())),
         ("vault/indexes/synthesis.md", _synthesis_index(state.syntheses())),

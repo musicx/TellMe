@@ -21,6 +21,11 @@ from .linting import lint_vault
 from .project import init_project
 from .publish import PublishError, publish_staged_graph
 from .query import query_vault
+from .reader_rewrite import (
+    ReaderRewriteError,
+    consume_reader_rewrite_result,
+    create_reader_rewrite_handoff,
+)
 from .reconcile import reconcile_vault
 from .resolver import ProjectNotFoundError
 from .runs import RunStore
@@ -78,6 +83,15 @@ def build_parser() -> argparse.ArgumentParser:
     publish_target = publish_parser.add_mutually_exclusive_group(required=True)
     publish_target.add_argument("--all", action="store_true", help="Publish all staged graph node pages")
     publish_target.add_argument("--path", help="Publish one staged graph page path")
+    publish_target.add_argument(
+        "--reader-rewrite-handoff",
+        action="store_true",
+        help="Create a reader rewrite handoff task for a host",
+    )
+    publish_target.add_argument(
+        "--consume-reader-rewrite",
+        help="Consume a staged reader rewrite result JSON",
+    )
     publish_parser.set_defaults(handler=_handle_publish)
 
     compile_parser = subparsers.add_parser("compile", help="Compile registered sources into vault pages")
@@ -278,6 +292,27 @@ def _handle_publish(args: argparse.Namespace) -> int:
     runs = RunStore(runtime.runs_dir)
 
     def operation(run):
+        if args.reader_rewrite_handoff:
+            result = create_reader_rewrite_handoff(runtime=runtime, run_id=run.run_id, host=args.host)
+            return {
+                "task_json_path": result.task_json_path,
+                "task_markdown_path": result.task_markdown_path,
+                "result_template_path": result.result_template_path,
+            }
+        if args.consume_reader_rewrite:
+            result_path = Path(args.consume_reader_rewrite)
+            if not result_path.is_absolute():
+                data_result_path = runtime.data_root / result_path
+                result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
+            result = consume_reader_rewrite_result(
+                runtime=runtime,
+                result_path=result_path,
+                consume_run_id=run.run_id,
+            )
+            return {
+                "consumed_rewrite_path": result.result_path,
+                "staged_pages": result.staged_pages,
+            }
         result = publish_staged_graph(
             runtime=runtime,
             run_id=run.run_id,
@@ -295,10 +330,20 @@ def _handle_publish(args: argparse.Namespace) -> int:
             inputs={"all": args.all, "path": args.path},
             operation=operation,
         )
-    except PublishError as exc:
+    except (PublishError, ReaderRewriteError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
+    if args.reader_rewrite_handoff:
+        print("tellme publish: reader rewrite task")
+        print(run.outputs["task_markdown_path"])
+        print("tellme publish: result template")
+        print(run.outputs["result_template_path"])
+        return 0
+    if args.consume_reader_rewrite:
+        first_page = run.outputs["staged_pages"][0] if run.outputs.get("staged_pages") else run.outputs["consumed_rewrite_path"]
+        print(f"tellme publish: consumed reader rewrite {first_page}")
+        return 0
     published_pages = run.outputs.get("published_pages", [])
     print(f"tellme publish: published {len(published_pages)} page(s)")
     for page in published_pages:

@@ -8,6 +8,7 @@ from tellme.config import load_runtime
 from tellme.ingest import ingest_file
 from tellme.project import init_project
 from tellme.publish import PublishError, publish_staged_graph
+from tellme.reader_rewrite import consume_reader_rewrite_result, create_reader_rewrite_handoff
 from tellme.query import query_vault
 from tellme.runs import RunStore
 from tellme.state import ContentStatus, PageRecord, ProjectState
@@ -239,6 +240,105 @@ def test_publish_generates_reader_facing_theme_subtheme_and_reference_pages(tmp_
     assert (runtime.vault_dir / "themes" / "architecture.md").is_file()
     assert (runtime.vault_dir / "subthemes" / "architecture-control-plane.md").is_file()
     assert (runtime.vault_dir / "subthemes" / "architecture-hosts.md").is_file()
+
+
+def test_create_reader_rewrite_handoff_writes_task_and_template(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    state = ProjectState.load(runtime.state_dir)
+    state.upsert_node(
+        {
+            "id": "concept:tellme-control-plane",
+            "kind": "concept",
+            "title": "TellMe Control Plane",
+            "summary": "Control plane summary.",
+            "status": "published",
+            "sources": ["raw/source.md"],
+            "theme": "Architecture",
+            "subtheme": "Control Plane",
+            "reader_role": "embedded",
+        }
+    )
+    generate = create_reader_rewrite_handoff(runtime=runtime, run_id="rewrite-run", host="codex")
+
+    assert generate.task_markdown_path == "runs/rewrite-run/host-tasks/reader-rewrite-codex.md"
+    assert generate.result_template_path == "runs/rewrite-run/artifacts/reader-rewrite.template.json"
+    task_markdown = (runtime.data_root / generate.task_markdown_path).read_text(encoding="utf-8")
+    assert "TellMe Reader Rewrite Task" in task_markdown
+    assert "vault/index.md" in task_markdown
+    template = json.loads((runtime.data_root / generate.result_template_path).read_text(encoding="utf-8"))
+    assert template["candidate_type"] == "reader_page_rewrites"
+    assert template["rewrites"] == []
+
+
+def test_consume_reader_rewrite_result_stages_reader_pages(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    result_path = runtime.staging_dir / "reader-rewrite" / "rewrite.json"
+    result_path.parent.mkdir(parents=True)
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "reader_page_rewrites",
+                "run_id": "rewrite-run",
+                "host": "codex",
+                "rewrites": [
+                    {
+                        "page_type": "theme",
+                        "target_path": "staging/reader-rewrite/themes/architecture.md",
+                        "sources": ["raw/source.md"],
+                        "content": "---\npage_type: theme\nstatus: staged\nsources: [raw/source.md]\n---\n# Architecture\n\nRewrite body.\n",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = consume_reader_rewrite_result(runtime=runtime, result_path=result_path, consume_run_id="consume-run")
+
+    assert result.staged_pages == ["staging/reader-rewrite/themes/architecture.md"]
+    assert (runtime.staging_dir / "reader-rewrite" / "themes" / "architecture.md").is_file()
+    page = ProjectState.load(runtime.state_dir).get_page("staging/reader-rewrite/themes/architecture.md")
+    assert page.page_type == "theme"
+    assert page.status == ContentStatus.STAGED
+
+
+def test_publish_all_publishes_staged_reader_rewrite_pages(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    result_path = runtime.staging_dir / "reader-rewrite" / "rewrite.json"
+    result_path.parent.mkdir(parents=True)
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "reader_page_rewrites",
+                "run_id": "rewrite-run",
+                "host": "codex",
+                "rewrites": [
+                    {
+                        "page_type": "theme",
+                        "target_path": "staging/reader-rewrite/themes/architecture.md",
+                        "sources": ["raw/source.md"],
+                        "content": "---\npage_type: theme\nstatus: staged\nsources: [raw/source.md]\n---\n# Architecture\n\nRewritten theme body.\n",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    consume_reader_rewrite_result(runtime=runtime, result_path=result_path, consume_run_id="consume-run")
+
+    result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
+
+    assert result.published_pages == ["vault/themes/architecture.md"]
+    theme_text = (runtime.vault_dir / "themes" / "architecture.md").read_text(encoding="utf-8")
+    assert "Rewritten theme body." in theme_text
 
 
 def _stage_graph_candidate(runtime, tmp_path: Path) -> str:

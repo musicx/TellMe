@@ -88,7 +88,10 @@ def publish_staged_graph(
             published_pages.append(vault_rel)
 
     if staged_path is None:
-        generate_vault_indexes(runtime=runtime, run_id=run_id, host=host)
+        include_reader_facing = not any(
+            page.path.startswith("staging/reader-rewrite/") for page in records
+        )
+        generate_vault_indexes(runtime=runtime, run_id=run_id, host=host, include_reader_facing=include_reader_facing)
 
     return PublishResult(published_pages=published_pages)
 
@@ -106,13 +109,14 @@ def _select_staged_graph_pages(state: ProjectState, staged_path: str | None) -> 
             page
             for page in pages
             if page.status == ContentStatus.STAGED
-            and page.page_type in {"concept", "entity", "synthesis", "output"}
+            and page.page_type in {"concept", "entity", "synthesis", "output", "overview", "theme", "subtheme", "reference"}
             and page.path.startswith(
                 (
                     "staging/concepts/",
                     "staging/entities/",
                     "staging/synthesis/",
                     "staging/outputs/",
+                    "staging/reader-rewrite/",
                 )
             )
         ],
@@ -123,6 +127,8 @@ def _select_staged_graph_pages(state: ProjectState, staged_path: str | None) -> 
 def _vault_path_for(staged_path: str) -> str:
     if not staged_path.startswith("staging/"):
         raise PublishError("publish target must be under staging/")
+    if staged_path.startswith("staging/reader-rewrite/"):
+        return "vault/" + staged_path.removeprefix("staging/reader-rewrite/")
     return "vault/" + staged_path.removeprefix("staging/")
 
 

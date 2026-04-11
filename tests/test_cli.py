@@ -402,6 +402,56 @@ def test_cli_publish_all_publishes_staged_query_synthesis(tmp_path: Path, monkey
     assert (data_root / "vault" / "synthesis" / "alpha.md").is_file()
 
 
+def test_cli_publish_reader_rewrite_handoff_and_consume(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+
+    handoff = run_cli("--project", str(project_root), "--host", "codex", "publish", "--reader-rewrite-handoff", cwd=tmp_path)
+
+    assert handoff.returncode == 0, handoff.stderr
+    assert "tellme publish: reader rewrite task" in handoff.stdout
+    task_line = next(line for line in handoff.stdout.splitlines() if line.endswith("reader-rewrite-codex.md"))
+    assert (data_root / task_line).is_file()
+
+    rewrite_result = data_root / "staging" / "reader-rewrite" / "rewrite.json"
+    rewrite_result.parent.mkdir(parents=True)
+    rewrite_result.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "reader_page_rewrites",
+                "run_id": "rewrite-run",
+                "host": "codex",
+                "rewrites": [
+                    {
+                        "page_type": "theme",
+                        "target_path": "staging/reader-rewrite/themes/architecture.md",
+                        "sources": ["raw/source.md"],
+                        "content": "---\npage_type: theme\nstatus: staged\nsources: [raw/source.md]\n---\n# Architecture\n\nRewritten theme body.\n"
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    consumed = run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "publish",
+        "--consume-reader-rewrite",
+        "staging/reader-rewrite/rewrite.json",
+        cwd=tmp_path,
+    )
+
+    assert consumed.returncode == 0, consumed.stderr
+    assert "tellme publish: consumed reader rewrite staging/reader-rewrite/themes/architecture.md" in consumed.stdout
+
+
 def test_cli_lint_health_handoff_writes_host_task(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
