@@ -1,0 +1,43 @@
+{
+  "plan_id": "2026-04-10-reader-facing-knowledge-organization-redesign",
+  "plan_path": "docs/plans/2026-04-10-reader-facing-knowledge-organization-redesign-plan.md",
+  "design_path": "docs/designs/2026-04-10-reader-facing-knowledge-organization-redesign.md",
+  "status": "completed",
+  "created_at": "2026-04-10",
+  "updated_at": "2026-04-10",
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Organization metadata for staged graph nodes",
+      "status": "completed",
+      "verification": [
+        "uv run --with pytest python -m pytest tests/test_graph.py tests/test_codex_collaboration.py -q"
+      ]
+    },
+    {
+      "id": "task-2",
+      "title": "Reader-facing publish model for overview, themes, subthemes, and references",
+      "status": "completed",
+      "verification": [
+        "uv run --with pytest python -m pytest tests/test_publish.py tests/test_indexes.py -q"
+      ]
+    },
+    {
+      "id": "task-3",
+      "title": "Reader-facing indexes and maintenance-surface updates",
+      "status": "completed",
+      "verification": [
+        "uv run --with pytest python -m pytest tests/test_indexes.py -q"
+      ]
+    },
+    {
+      "id": "task-4",
+      "title": "Documentation alignment, example refresh, and verification",
+      "status": "completed",
+      "verification": [
+        "uv run python -m tellme --help",
+        "uv run --with pytest python -m pytest tests -q"
+      ]
+    }
+  ]
+}

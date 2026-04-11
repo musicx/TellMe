@@ -34,14 +34,21 @@ def publish_staged_graph(
         source_path = runtime.data_root / page.path
         if not source_path.is_file():
             raise PublishError(f"staged page not found: {page.path}")
-        vault_rel = _vault_path_for(page.path)
-        vault_path = runtime.data_root / vault_rel
-        vault_path.parent.mkdir(parents=True, exist_ok=True)
-        vault_path.write_text(
-            _publish_page_text(source_path.read_text(encoding="utf-8"), host=host, run_id=run_id),
-            encoding="utf-8",
-        )
-        page_hash = hashlib.sha256(vault_path.read_bytes()).hexdigest()
+        vault_rel = _published_path_for_page(state=state, page=page)
+        page_hash: str | None = None
+        if vault_rel is not None:
+            vault_path = runtime.data_root / vault_rel
+            vault_path.parent.mkdir(parents=True, exist_ok=True)
+            vault_path.write_text(
+                _publish_page_text(
+                    source_path.read_text(encoding="utf-8"),
+                    host=host,
+                    run_id=run_id,
+                    page_type_override=_published_page_type(state=state, page=page),
+                ),
+                encoding="utf-8",
+            )
+            page_hash = hashlib.sha256(vault_path.read_bytes()).hexdigest()
         state.upsert_page(
             PageRecord(
                 path=page.path,
@@ -55,19 +62,20 @@ def publish_staged_graph(
                 staged_path=page.path,
             )
         )
-        state.upsert_page(
-            PageRecord(
-                path=vault_rel,
-                page_type=page.page_type,
-                status=ContentStatus.PUBLISHED,
-                sha256=page_hash,
-                sources=page.sources,
-                last_host=host,
-                last_run_id=run_id,
-                published_path=vault_rel,
-                staged_path=page.path,
+        if vault_rel is not None and page_hash is not None:
+            state.upsert_page(
+                PageRecord(
+                    path=vault_rel,
+                    page_type=_published_page_type(state=state, page=page),
+                    status=ContentStatus.PUBLISHED,
+                    sha256=page_hash,
+                    sources=page.sources,
+                    last_host=host,
+                    last_run_id=run_id,
+                    published_path=vault_rel,
+                    staged_path=page.path,
+                )
             )
-        )
         _mark_related_record_published(
             state=state,
             page_type=page.page_type,
@@ -76,7 +84,8 @@ def publish_staged_graph(
             host=host,
             run_id=run_id,
         )
-        published_pages.append(vault_rel)
+        if vault_rel is not None:
+            published_pages.append(vault_rel)
 
     if staged_path is None:
         generate_vault_indexes(runtime=runtime, run_id=run_id, host=host)
@@ -117,7 +126,32 @@ def _vault_path_for(staged_path: str) -> str:
     return "vault/" + staged_path.removeprefix("staging/")
 
 
-def _publish_page_text(text: str, host: str, run_id: str) -> str:
+def _published_path_for_page(state: ProjectState, page: PageRecord) -> str | None:
+    if page.page_type in {"concept", "entity"}:
+        node = _node_for_staged_path(state, page.path)
+        reader_role = str((node or {}).get("reader_role", "reference"))
+        if reader_role == "embedded":
+            return None
+        return "vault/references/" + Path(page.path).name
+    return _vault_path_for(page.path)
+
+
+def _published_page_type(state: ProjectState, page: PageRecord) -> str:
+    if page.page_type in {"concept", "entity"}:
+        node = _node_for_staged_path(state, page.path)
+        if str((node or {}).get("reader_role", "reference")) == "reference":
+            return "reference"
+    return page.page_type
+
+
+def _node_for_staged_path(state: ProjectState, staged_path: str) -> dict | None:
+    for node in state.nodes().values():
+        if node.get("staged_path") == staged_path:
+            return node
+    return None
+
+
+def _publish_page_text(text: str, host: str, run_id: str, page_type_override: str | None = None) -> str:
     now = datetime.now(timezone.utc).isoformat()
     replacements = {
         "status": "published",
@@ -125,6 +159,8 @@ def _publish_page_text(text: str, host: str, run_id: str) -> str:
         "last_host": host,
         "last_run_id": run_id,
     }
+    if page_type_override is not None:
+        replacements["page_type"] = page_type_override
     for key, value in replacements.items():
         text = _replace_frontmatter_scalar(text, key, value)
     return text
@@ -178,7 +214,10 @@ def _mark_dict_record_published(
 def _publish_record(record: dict, published_path: str, host: str, run_id: str, upsert) -> None:
     updated = dict(record)
     updated["status"] = ContentStatus.PUBLISHED.value
-    updated["published_path"] = published_path
+    if published_path is None:
+        updated.pop("published_path", None)
+    else:
+        updated["published_path"] = published_path
     updated["last_host"] = host
     updated["last_run_id"] = run_id
     upsert(updated)

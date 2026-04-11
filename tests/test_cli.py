@@ -318,8 +318,8 @@ def test_cli_publish_all_publishes_staged_graph_nodes(tmp_path: Path, monkeypatc
 
     assert published.returncode == 0, published.stderr
     assert "tellme publish: published 1 page(s)" in published.stdout
-    assert "vault/concepts/codex-graph-candidate.md" in published.stdout
-    assert (data_root / "vault" / "concepts" / "codex-graph-candidate.md").is_file()
+    assert "vault/references/codex-graph-candidate.md" in published.stdout
+    assert (data_root / "vault" / "references" / "codex-graph-candidate.md").is_file()
 
 
 def test_cli_lint_consumes_health_result_and_stages_review_page(tmp_path: Path, monkeypatch) -> None:

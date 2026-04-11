@@ -202,6 +202,9 @@ def _validate_candidate(
                 raise GraphCandidateError(f"node missing {field}")
         if node["kind"] not in {"concept", "entity"}:
             raise GraphCandidateError("node kind must be concept or entity")
+        reader_role = node.get("reader_role")
+        if reader_role is not None and reader_role not in {"reference", "embedded"}:
+            raise GraphCandidateError("node reader_role must be reference or embedded")
         _require_sources(node, "sources", f"node {node['id']}", source_references)
         node_ids.add(str(node["id"]))
 
@@ -262,6 +265,13 @@ def _node_page(
 ) -> str:
     now = _utc_now()
     sources = _as_str_list(node["sources"])
+    theme_line = f"theme: {node['theme']}\n" if str(node.get("theme", "")).strip() else ""
+    subtheme_line = f"subtheme: {node['subtheme']}\n" if str(node.get("subtheme", "")).strip() else ""
+    reader_role_line = (
+        f"reader_role: {node['reader_role']}\n"
+        if str(node.get("reader_role", "")).strip()
+        else ""
+    )
     previous_path_line = (
         f"previous_published_path: {previous_published_path}\n"
         if previous_published_path
@@ -282,6 +292,9 @@ def _node_page(
         f"update_action: {update_action}\n"
         f"node_id: {node['id']}\n"
         f"node_kind: {node['kind']}\n"
+        f"{theme_line}"
+        f"{subtheme_line}"
+        f"{reader_role_line}"
         f"{previous_path_line}"
         "sources:\n"
         f"{source_lines}\n"

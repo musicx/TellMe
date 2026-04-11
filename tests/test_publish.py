@@ -21,20 +21,20 @@ def test_publish_staged_graph_page_to_vault_and_updates_state(tmp_path: Path) ->
 
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex", staged_path=staged_page)
 
-    assert result.published_pages == ["vault/concepts/codex-graph-candidate.md"]
-    vault_page = runtime.vault_dir / "concepts" / "codex-graph-candidate.md"
+    assert result.published_pages == ["vault/references/codex-graph-candidate.md"]
+    vault_page = runtime.vault_dir / "references" / "codex-graph-candidate.md"
     assert vault_page.is_file()
     vault_text = vault_page.read_text(encoding="utf-8")
     assert "status: published" in vault_text
     assert "last_run_id: publish-run" in vault_text
 
     state = ProjectState.load(runtime.state_dir)
-    page = state.get_page("vault/concepts/codex-graph-candidate.md")
+    page = state.get_page("vault/references/codex-graph-candidate.md")
     assert page.status == ContentStatus.PUBLISHED
-    assert page.published_path == "vault/concepts/codex-graph-candidate.md"
+    assert page.published_path == "vault/references/codex-graph-candidate.md"
     node = state.nodes()["concept:codex-graph-candidate"]
     assert node["status"] == "published"
-    assert node["published_path"] == "vault/concepts/codex-graph-candidate.md"
+    assert node["published_path"] == "vault/references/codex-graph-candidate.md"
     assert node["staged_path"] == "staging/concepts/codex-graph-candidate.md"
 
 
@@ -46,7 +46,7 @@ def test_publish_staged_graph_all_publishes_each_staged_node(tmp_path: Path) -> 
 
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
 
-    assert result.published_pages == ["vault/concepts/codex-graph-candidate.md"]
+    assert result.published_pages == ["vault/references/codex-graph-candidate.md"]
 
 
 def test_publish_staged_graph_all_is_idempotent_after_state_update(tmp_path: Path) -> None:
@@ -169,6 +169,76 @@ def test_publish_all_skips_conflict_review_pages(tmp_path: Path) -> None:
 
     assert result.published_pages == []
     assert not (runtime.vault_dir / "conflicts" / "review-me.md").exists()
+
+
+def test_publish_generates_reader_facing_theme_subtheme_and_reference_pages(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nReader-facing organization.", encoding="utf-8")
+    ingest_run = RunStore(runtime.runs_dir).start("ingest", "codex")
+    ingest_file(runtime, source, ingest_run.run_id)
+    candidate_path = runtime.staging_dir / "graph" / "candidates" / "candidate.json"
+    candidate_path.parent.mkdir(parents=True)
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "knowledge_graph_update",
+                "source_references": ["raw/source.md"],
+                "nodes": [
+                    {
+                        "id": "concept:tellme-control-plane",
+                        "kind": "concept",
+                        "title": "TellMe Control Plane",
+                        "summary": "Control plane summary.",
+                        "sources": ["raw/source.md"],
+                        "theme": "Architecture",
+                        "subtheme": "Control Plane",
+                        "reader_role": "embedded",
+                    },
+                    {
+                        "id": "entity:codex",
+                        "kind": "entity",
+                        "title": "Codex",
+                        "summary": "Codex host summary.",
+                        "sources": ["raw/source.md"],
+                        "theme": "Architecture",
+                        "subtheme": "Hosts",
+                        "reader_role": "reference",
+                    }
+                ],
+                "claims": [],
+                "relations": [],
+                "conflicts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result_path = runtime.runs_dir / "codex-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "succeeded",
+                "host": "codex",
+                "run_id": "handoff-run",
+                "output_path": "staging/graph/candidates/candidate.json",
+                "source_references": ["raw/source.md"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    consume_codex_result(runtime=runtime, result_path=result_path, consume_run_id="consume-run")
+
+    result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
+
+    assert result.published_pages == ["vault/references/codex.md"]
+    assert (runtime.vault_dir / "references" / "codex.md").is_file()
+    assert (runtime.vault_dir / "themes" / "architecture.md").is_file()
+    assert (runtime.vault_dir / "subthemes" / "architecture-control-plane.md").is_file()
+    assert (runtime.vault_dir / "subthemes" / "architecture-hosts.md").is_file()
 
 
 def _stage_graph_candidate(runtime, tmp_path: Path) -> str:

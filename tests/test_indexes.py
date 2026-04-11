@@ -18,6 +18,9 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
 
     assert result.index_pages == [
         "vault/index.md",
+        "vault/themes/architecture.md",
+        "vault/subthemes/architecture-control-plane.md",
+        "vault/references/codex-graph-candidate.md",
         "vault/indexes/concepts.md",
         "vault/indexes/entities.md",
         "vault/indexes/synthesis.md",
@@ -26,11 +29,19 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     ]
     root_index = (runtime.vault_dir / "index.md").read_text(encoding="utf-8")
     assert "TellMe Knowledge Base" in root_index
-    assert "indexes/concepts.md" in root_index
+    assert "themes/architecture.md" in root_index
+    assert "references/codex-graph-candidate.md" in root_index
     assert "indexes/health-review.md" in root_index
+    theme = (runtime.vault_dir / "themes" / "architecture.md").read_text(encoding="utf-8")
+    assert "Control Plane" in theme
+    assert "Codex Graph Candidate" in theme
+    subtheme = (runtime.vault_dir / "subthemes" / "architecture-control-plane.md").read_text(encoding="utf-8")
+    assert "TellMe Control Plane" in subtheme
+    reference = (runtime.vault_dir / "references" / "codex-graph-candidate.md").read_text(encoding="utf-8")
+    assert "page_type: reference" in reference
     concepts = (runtime.vault_dir / "indexes" / "concepts.md").read_text(encoding="utf-8")
     assert "Codex Graph Candidate" in concepts
-    assert "../concepts/codex-graph-candidate.md" in concepts
+    assert "../references/codex-graph-candidate.md" in concepts
     synthesis = (runtime.vault_dir / "indexes" / "synthesis.md").read_text(encoding="utf-8")
     assert "Alpha Synthesis" in synthesis
     conflicts = (runtime.vault_dir / "indexes" / "unresolved-conflicts.md").read_text(encoding="utf-8")
@@ -40,7 +51,7 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     assert "../../staging/health/health-thin-node-needs-enrichment.md" in health
 
     state = ProjectState.load(runtime.state_dir)
-    assert state.get_page("vault/index.md").page_type == "index"
+    assert state.get_page("vault/index.md").page_type == "overview"
     assert state.indexes()["vault/index.md"]["last_run_id"] == "index-run"
 
 
@@ -57,6 +68,8 @@ def test_generate_vault_indexes_handles_empty_state(tmp_path: Path) -> None:
     assert "No unresolved conflicts." in conflicts
     health = (runtime.vault_dir / "indexes" / "health-review.md").read_text(encoding="utf-8")
     assert "No staged health findings." in health
+    root = (runtime.vault_dir / "index.md").read_text(encoding="utf-8")
+    assert "No reader-facing themes yet." in root
 
 
 def _seed_index_state(runtime) -> None:
@@ -68,7 +81,23 @@ def _seed_index_state(runtime) -> None:
             "title": "Codex Graph Candidate",
             "status": "published",
             "sources": ["raw/source.md"],
-            "published_path": "vault/concepts/codex-graph-candidate.md",
+            "published_path": "vault/references/codex-graph-candidate.md",
+            "theme": "Architecture",
+            "subtheme": "Control Plane",
+            "reader_role": "reference",
+        }
+    )
+    state.upsert_node(
+        {
+            "id": "concept:tellme-control-plane",
+            "kind": "concept",
+            "title": "TellMe Control Plane",
+            "summary": "Control plane summary.",
+            "status": "published",
+            "sources": ["raw/source.md"],
+            "theme": "Architecture",
+            "subtheme": "Control Plane",
+            "reader_role": "embedded",
         }
     )
     state.upsert_node(
@@ -116,7 +145,7 @@ def _seed_index_state(runtime) -> None:
         }
     )
     for path, page_type in [
-        ("vault/concepts/codex-graph-candidate.md", "concept"),
+        ("vault/references/codex-graph-candidate.md", "reference"),
         ("vault/entities/openai.md", "entity"),
         ("vault/synthesis/alpha.md", "synthesis"),
     ]:
