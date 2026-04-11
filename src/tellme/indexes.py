@@ -221,6 +221,8 @@ def _theme_page(theme_name: str, theme: dict, state: ProjectState) -> str:
             lines.append(
                 f"- [{node['title']}](../references/{_slug(Path(str(node.get('published_path', node['id']))).stem)}.md)"
             )
+    lines.extend(["", "## Narrative", ""])
+    lines.append(_theme_narrative(theme_name, theme, state))
     lines.extend(["", "## Key Claims", ""])
     claim_lines = _claim_lines(theme["nodes"], state)
     if not claim_lines:
@@ -258,6 +260,10 @@ def _subtheme_page(theme_name: str, subtheme_name: str, subtheme: dict, state: P
         "## How This Fits",
         "",
         f"{subtheme_name} is one part of {theme_name} and should be read as a focused slice of that larger theme.",
+        "",
+        "## Narrative",
+        "",
+        _subtheme_narrative(subtheme_name, subtheme, state),
         "",
         "## Parent Theme",
         "",
@@ -488,9 +494,28 @@ def _theme_importance(theme_name: str, theme: dict) -> str:
     return f"This theme matters because it groups together the key ideas and references around {preview}."
 
 
+def _theme_narrative(theme_name: str, theme: dict, state: ProjectState) -> str:
+    node_titles = [str(node.get("title", "Untitled")) for node in theme["nodes"]]
+    lead = ", ".join(node_titles[:3]) if node_titles else theme_name
+    relation_lines = _relationship_lines(theme["nodes"], state)
+    if relation_lines:
+        relation_text = relation_lines[0].removeprefix("- ")
+        return f"This theme centers on {lead}. One important relationship is that {relation_text}."
+    return f"This theme centers on {lead} and gathers the main ideas that shape {theme_name}."
+
+
 def _subtheme_summary(subtheme_name: str, subtheme: dict) -> str:
     node_titles = [str(node.get("title", "Untitled")) for node in subtheme["nodes"]]
     if not node_titles:
         return f"{subtheme_name} does not have any published knowledge yet."
     preview = ", ".join(node_titles[:3])
     return f"{subtheme_name} focuses on {preview}."
+
+
+def _subtheme_narrative(subtheme_name: str, subtheme: dict, state: ProjectState) -> str:
+    claim_lines = _claim_lines(subtheme["nodes"], state)
+    if claim_lines:
+        return f"Within this subtheme, the main takeaway is: {claim_lines[0].removeprefix('- ')}"
+    node_titles = [str(node.get("title", "Untitled")) for node in subtheme["nodes"]]
+    preview = ", ".join(node_titles[:2]) if node_titles else subtheme_name
+    return f"Within this subtheme, the current focus is on {preview}."

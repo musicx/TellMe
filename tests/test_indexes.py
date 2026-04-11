@@ -40,19 +40,23 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     assert "## Summary" in theme
     assert "## Why This Theme Matters" in theme
     assert "## Core Question" in theme
+    assert "## Narrative" in theme
     assert "## Key Claims" in theme
     assert "## Relationships" in theme
     assert "## Evidence" in theme
     assert "Control planes organize published knowledge." in theme
     assert "depends_on" in theme
+    assert "This theme centers on" in theme
     assert "Control Plane" in theme
     assert "Codex Graph Candidate" in theme
     subtheme = (runtime.vault_dir / "subthemes" / "architecture-control-plane.md").read_text(encoding="utf-8")
     assert "## Summary" in subtheme
     assert "## How This Fits" in subtheme
+    assert "## Narrative" in subtheme
     assert "## Key Claims" in subtheme
     assert "## Evidence" in subtheme
     assert "Control planes organize published knowledge." in subtheme
+    assert "Within this subtheme" in subtheme
     assert "TellMe Control Plane" in subtheme
     reference = (runtime.vault_dir / "references" / "codex-graph-candidate.md").read_text(encoding="utf-8")
     assert "page_type: reference" in reference
