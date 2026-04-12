@@ -59,7 +59,7 @@ def test_codex_handoff_includes_existing_graph_nodes(tmp_path: Path) -> None:
             "summary": "Already published knowledge point.",
             "sources": ["raw/old.md"],
             "status": "published",
-            "published_path": "vault/concepts/existing-node.md",
+            "published_path": "wiki/concepts/existing-node.md",
         }
     )
     handoff_run = RunStore(runtime.runs_dir).start("compile", "codex")
@@ -69,7 +69,7 @@ def test_codex_handoff_includes_existing_graph_nodes(tmp_path: Path) -> None:
     task_markdown = (runtime.data_root / result.task_markdown_path).read_text(encoding="utf-8")
     assert "## Existing Graph Nodes" in task_markdown
     assert "`concept:existing-node`" in task_markdown
-    assert "vault/concepts/existing-node.md" in task_markdown
+    assert "wiki/concepts/existing-node.md" in task_markdown
 
 
 def test_codex_handoff_can_focus_on_health_finding_context(tmp_path: Path) -> None:
@@ -165,7 +165,7 @@ def test_consume_codex_result_rejects_output_outside_staging(tmp_path: Path) -> 
                 "status": "succeeded",
                 "host": "codex",
                 "run_id": "handoff-run",
-                "output_path": "vault/unsafe.md",
+                "output_path": "wiki/unsafe.md",
                 "source_references": ["raw/source.md"],
             }
         ),

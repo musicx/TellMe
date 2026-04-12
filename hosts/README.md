@@ -12,4 +12,4 @@
 
 - 统一 TellMe 正式命令语义
 - 不把宿主视为主状态存储
-- 允许宿主直接修改 `vault/`，但要求后续可 reconcile
+- 允许宿主直接修改 `wiki/`，但要求后续可 reconcile

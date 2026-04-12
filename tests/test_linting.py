@@ -25,7 +25,7 @@ def test_lint_vault_reports_missing_frontmatter(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, machine="test-pc")
-    (runtime.vault_dir / "No Frontmatter.md").write_text("# No Frontmatter\n", encoding="utf-8")
+    (runtime.wiki_dir / "No Frontmatter.md").write_text("# No Frontmatter\n", encoding="utf-8")
 
     result = lint_vault(runtime)
 
@@ -36,7 +36,7 @@ def test_lint_vault_reports_broken_wikilink(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, machine="test-pc")
-    (runtime.vault_dir / "Page.md").write_text(
+    (runtime.wiki_dir / "Page.md").write_text(
         "---\ntitle: Page\nsources: [raw/page.md]\n---\nSee [[Missing Page]].",
         encoding="utf-8",
     )
@@ -50,11 +50,11 @@ def test_lint_vault_accepts_wikilink_matching_page_heading(tmp_path: Path) -> No
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, machine="test-pc")
-    (runtime.vault_dir / "tellme-control-plane.md").write_text(
+    (runtime.wiki_dir / "tellme-control-plane.md").write_text(
         "---\npage_type: concept\nsources: [raw/page.md]\n---\n# TellMe Control Plane\n\nBody.\n",
         encoding="utf-8",
     )
-    (runtime.vault_dir / "health-reflection-loop.md").write_text(
+    (runtime.wiki_dir / "health-reflection-loop.md").write_text(
         "---\npage_type: concept\nsources: [raw/page.md]\n---\n# Health Reflection Loop\n\nSee [[TellMe Control Plane]].\n",
         encoding="utf-8",
     )
@@ -82,7 +82,7 @@ def test_lint_vault_reports_state_page_hash_drift(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, machine="test-pc")
-    page = runtime.vault_dir / "Page.md"
+    page = runtime.wiki_dir / "Page.md"
     page.write_text(
         "---\ntitle: Page\nsources: [raw/page.md]\n---\nOriginal.",
         encoding="utf-8",
@@ -90,14 +90,14 @@ def test_lint_vault_reports_state_page_hash_drift(tmp_path: Path) -> None:
     state = ProjectState.load(runtime.state_dir)
     state.upsert_page(
         PageRecord(
-            path="vault/Page.md",
+            path="wiki/Page.md",
             page_type="note",
             status=ContentStatus.PUBLISHED,
             sha256="not-the-current-hash",
             sources=["raw/page.md"],
             last_host="codex",
             last_run_id="run-1",
-            published_path="vault/Page.md",
+            published_path="wiki/Page.md",
         )
     )
     result = lint_vault(runtime)

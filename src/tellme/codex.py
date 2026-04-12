@@ -59,7 +59,7 @@ def create_codex_handoff(
         command="compile",
         run_id=run_id,
         host="codex",
-        allowed_read_roots=["raw", "state", "vault", "staging"],
+        allowed_read_roots=["raw", "state", "wiki", "staging"],
         allowed_write_roots=["staging", "runs"],
         inputs=source_references,
         expected_output=f"runs/{run_id}/artifacts/codex-result.json",
@@ -180,13 +180,13 @@ Host: `codex`
 
 ## Goal
 
-Produce a structured knowledge graph update candidate from the registered TellMe sources. Extract concepts, claims, relations, and conflicts; compare them with existing `vault/` graph pages when relevant; write the candidate JSON under `staging/graph/candidates/`, then write a result JSON artifact at `{task.expected_output}`.
+Produce a structured knowledge graph update candidate from the registered TellMe sources. Extract concepts, claims, relations, and conflicts; compare them with existing `wiki/` graph pages when relevant; write the candidate JSON under `staging/graph/candidates/`, then write a result JSON artifact at `{task.expected_output}`.
 
 ## Allowed Read Roots
 
 - `raw/`
 - `state/`
-- `vault/`
+- `wiki/`
 
 ## Allowed Write Roots
 
@@ -194,7 +194,7 @@ Produce a structured knowledge graph update candidate from the registered TellMe
 - `runs/`
 
 Do not modify `raw/`.
-Do not publish directly to `vault/`.
+Do not publish directly to `wiki/`.
 
 ## Input Sources
 

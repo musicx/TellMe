@@ -16,7 +16,7 @@ def test_host_task_packet_is_written_with_schema_version_and_allowed_roots(tmp_p
         command="compile",
         run_id=run.run_id,
         host="codex",
-        allowed_read_roots=["raw", "vault"],
+        allowed_read_roots=["raw", "wiki"],
         allowed_write_roots=["staging", "runs"],
         inputs=["raw/note.md"],
         expected_output="artifacts/compile-result.json",

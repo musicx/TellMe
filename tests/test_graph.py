@@ -403,7 +403,7 @@ def test_consume_graph_candidate_marks_existing_node_as_enrichment(tmp_path: Pat
             "summary": "Existing published node.",
             "sources": ["raw/old.md"],
             "status": "published",
-            "published_path": "vault/concepts/codex-graph-candidate.md",
+            "published_path": "wiki/concepts/codex-graph-candidate.md",
         }
     )
     source = tmp_path / "source.md"
@@ -453,10 +453,10 @@ def test_consume_graph_candidate_marks_existing_node_as_enrichment(tmp_path: Pat
 
     page_text = (runtime.staging_dir / "concepts" / "codex-graph-candidate.md").read_text(encoding="utf-8")
     assert "update_action: enrich_existing" in page_text
-    assert "previous_published_path: vault/concepts/codex-graph-candidate.md" in page_text
+    assert "previous_published_path: wiki/concepts/codex-graph-candidate.md" in page_text
     node = ProjectState.load(runtime.state_dir).nodes()["concept:codex-graph-candidate"]
     assert node["update_action"] == "enrich_existing"
-    assert node["previous_published_path"] == "vault/concepts/codex-graph-candidate.md"
+    assert node["previous_published_path"] == "wiki/concepts/codex-graph-candidate.md"
 
 
 def test_lint_reports_graph_relation_to_missing_node(tmp_path: Path) -> None:

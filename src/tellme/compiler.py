@@ -37,7 +37,7 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
         command="compile",
         run_id=run_id,
         host=host,
-        allowed_read_roots=["raw", "state", "vault"],
+        allowed_read_roots=["raw", "state", "wiki"],
         allowed_write_roots=["staging", "runs"],
         inputs=[source.path for source in sources],
         expected_output="artifacts/compile-result.json",
@@ -48,7 +48,7 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
         raw_path = runtime.data_root / (source.raw_path or source.path)
         if not raw_path.is_file():
             continue
-        base_dir = runtime.vault_dir if direct_publish else runtime.staging_dir
+        base_dir = runtime.wiki_dir if direct_publish else runtime.staging_dir
         page_path = base_dir / "sources" / f"{_slug(raw_path.stem)}.md"
         page_path.parent.mkdir(parents=True, exist_ok=True)
         content = _source_summary_page(

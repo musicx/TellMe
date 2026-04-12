@@ -4,8 +4,8 @@ platform = "windows"
 
 [paths]
 project_root = "E:\\Code\\Home\\AI\\TellMe"
-primary_vault = "E:\\Code\\Home\\AI\\TellMe\\.example\\vault"
-vault_root = "E:\\Code\\Home\\AI\\TellMe\\.example\\vault"
+primary_wiki = "E:\\Code\\Home\\AI\\TellMe\\.example\\wiki"
+wiki_root = "E:\\Code\\Home\\AI\\TellMe\\.example\\wiki"
 raw_root = "E:\\Code\\Home\\AI\\TellMe\\.example\\raw"
 staging_root = "E:\\Code\\Home\\AI\\TellMe\\.example\\staging"
 state_root = "E:\\Code\\Home\\AI\\TellMe\\.example\\state"

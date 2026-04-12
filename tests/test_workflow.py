@@ -27,7 +27,7 @@ def test_run_workflow_records_failed_run_when_operation_raises(tmp_path: Path) -
             runs=store,
             command="lint",
             host="codex",
-            inputs={"target": "vault"},
+            inputs={"target": "wiki"},
             operation=lambda run: (_ for _ in ()).throw(ValueError("boom")),
         )
 
@@ -46,7 +46,7 @@ def test_run_workflow_records_successful_run(tmp_path: Path) -> None:
         runs=store,
         command="lint",
         host="codex",
-        inputs={"target": "vault"},
+        inputs={"target": "wiki"},
         operation=lambda run: {"issues": 0},
     )
 

@@ -32,7 +32,7 @@ def init_project(project_root: Path, machine: str) -> None:
         _machine_toml(machine=machine, project_root=project_root),
     )
     data_paths = _data_paths(project_root=project_root, machine=machine)
-    for key in ("raw_root", "staging_root", "state_root", "runs_root", "primary_vault"):
+    for key in ("raw_root", "staging_root", "state_root", "runs_root", "primary_wiki"):
         data_paths[key].mkdir(parents=True, exist_ok=True)
     _write_if_missing(data_paths["runs_root"] / ".gitkeep", "")
     ProjectState.create(data_paths["state_root"])
@@ -48,7 +48,7 @@ def _project_toml() -> str:
     return """[project]
 name = "TellMe"
 mode = "hybrid-orchestrator"
-primary_vault = "primary_vault"
+primary_wiki = "primary_wiki"
 
 [data]
 root_env = "OBSIDIAN_VAULT_PATH"
@@ -59,7 +59,7 @@ raw_dir = "raw"
 staging_dir = "staging"
 state_dir = "state"
 runs_dir = "runs"
-vault_dir = "vault"
+wiki_dir = "wiki"
 """
 
 
@@ -93,8 +93,8 @@ platform = "{_platform_name()}"
 
 [paths]
 project_root = "{_toml_escape(root)}"
-primary_vault = "{_toml_escape(str(data_root / "vault"))}"
-vault_root = "{_toml_escape(str(data_root / "vault"))}"
+primary_wiki = "{_toml_escape(str(data_root / "wiki"))}"
+wiki_root = "{_toml_escape(str(data_root / "wiki"))}"
 raw_root = "{_toml_escape(str(data_root / "raw"))}"
 staging_root = "{_toml_escape(str(data_root / "staging"))}"
 state_root = "{_toml_escape(str(data_root / "state"))}"
@@ -130,7 +130,9 @@ def _data_paths(project_root: Path, machine: str) -> dict[str, Path]:
         paths = payload.get("paths", {})
         if isinstance(paths, dict):
             return {
-                "primary_vault": Path(str(paths.get("primary_vault", _default_data_root() / "vault"))).expanduser().resolve(),
+                "primary_wiki": Path(
+                    str(paths.get("primary_wiki", paths.get("primary_vault", _default_data_root() / "wiki")))
+                ).expanduser().resolve(),
                 "raw_root": Path(str(paths.get("raw_root", _default_data_root() / "raw"))).expanduser().resolve(),
                 "staging_root": Path(str(paths.get("staging_root", _default_data_root() / "staging"))).expanduser().resolve(),
                 "state_root": Path(str(paths.get("state_root", _default_data_root() / "state"))).expanduser().resolve(),
@@ -138,7 +140,7 @@ def _data_paths(project_root: Path, machine: str) -> dict[str, Path]:
             }
     data_root = _default_data_root()
     return {
-        "primary_vault": data_root / "vault",
+        "primary_wiki": data_root / "wiki",
         "raw_root": data_root / "raw",
         "staging_root": data_root / "staging",
         "state_root": data_root / "state",

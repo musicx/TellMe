@@ -23,11 +23,11 @@ def generate_vault_indexes(
 ) -> IndexResult:
     state = ProjectState.load(runtime.state_dir)
     pages = ([] if not include_reader_facing else _reader_facing_pages(state)) + [
-        ("vault/indexes/concepts.md", _node_index("Concepts", "concept", state.nodes())),
-        ("vault/indexes/entities.md", _node_index("Entities", "entity", state.nodes())),
-        ("vault/indexes/synthesis.md", _synthesis_index(state.syntheses())),
-        ("vault/indexes/unresolved-conflicts.md", _conflict_index(state.conflicts())),
-        ("vault/indexes/health-review.md", _health_review_index(state.health_findings())),
+        ("wiki/indexes/concepts.md", _node_index("Concepts", "concept", state.nodes())),
+        ("wiki/indexes/entities.md", _node_index("Entities", "entity", state.nodes())),
+        ("wiki/indexes/synthesis.md", _synthesis_index(state.syntheses())),
+        ("wiki/indexes/unresolved-conflicts.md", _conflict_index(state.conflicts())),
+        ("wiki/indexes/health-review.md", _health_review_index(state.health_findings())),
     ]
     if include_reader_facing:
         _cleanup_stale_reader_facing_pages(runtime=runtime, state=state, desired_paths={rel for rel, _body in pages})
@@ -83,11 +83,11 @@ def _reader_facing_pages(state: ProjectState) -> list[tuple[str, str]]:
     themes = _group_themes(published_nodes)
     references = _reference_nodes(published_nodes)
 
-    pages: list[tuple[str, str]] = [("vault/index.md", _overview_page(themes, references))]
+    pages: list[tuple[str, str]] = [("wiki/index.md", _overview_page(themes, references))]
     for theme_name, theme in sorted(themes.items()):
-        pages.append((f"vault/{theme['path']}", _theme_page(theme_name, theme, state)))
+        pages.append((f"wiki/{theme['path']}", _theme_page(theme_name, theme, state)))
         for subtheme_name, subtheme in sorted(theme["subthemes"].items()):
-            pages.append((f"vault/{subtheme['path']}", _subtheme_page(theme_name, subtheme_name, subtheme, state)))
+            pages.append((f"wiki/{subtheme['path']}", _subtheme_page(theme_name, subtheme_name, subtheme, state)))
     for reference in references:
         if reference["path"]:
             pages.append((reference["path"], _reference_page(reference["node"], state)))
@@ -131,12 +131,12 @@ def _reference_nodes(published_nodes: list[dict]) -> list[dict]:
         if str(node.get("reader_role", "reference")) != "reference":
             continue
         published_path = str(node.get("published_path", ""))
-        if not published_path.startswith("vault/references/"):
+        if not published_path.startswith("wiki/references/"):
             continue
         references.append(
             {
                 "title": str(node.get("title", node.get("id", "Untitled"))),
-                "link": _relative_link("vault/index.md", published_path),
+                "link": _relative_link("wiki/index.md", published_path),
                 "path": published_path,
                 "node": node,
             }
@@ -364,7 +364,7 @@ def _node_index(title: str, kind: str, nodes: dict[str, dict]) -> str:
     for node in sorted(matching, key=lambda item: str(item.get("title", item.get("id", ""))).lower()):
         title_value = str(node.get("title", node.get("id", "Untitled")))
         path = str(node.get("published_path", ""))
-        link = _relative_link(from_rel=f"vault/indexes/{kind}s.md", to_rel=path) if path else ""
+        link = _relative_link(from_rel=f"wiki/indexes/{kind}s.md", to_rel=path) if path else ""
         lines.append(f"- [{title_value}]({link})" if link else f"- {title_value}")
     return "\n".join(lines) + "\n"
 
@@ -377,7 +377,7 @@ def _synthesis_index(syntheses: dict[str, dict]) -> str:
     for synthesis in sorted(published, key=lambda item: str(item.get("title", item.get("id", ""))).lower()):
         title = str(synthesis.get("title", synthesis.get("id", "Untitled")))
         path = str(synthesis.get("published_path", ""))
-        link = _relative_link(from_rel="vault/indexes/synthesis.md", to_rel=path) if path else ""
+        link = _relative_link(from_rel="wiki/indexes/synthesis.md", to_rel=path) if path else ""
         lines.append(f"- [{title}]({link})" if link else f"- {title}")
     return "\n".join(lines) + "\n"
 
@@ -394,7 +394,7 @@ def _conflict_index(conflicts: dict[str, dict]) -> str:
     for conflict in sorted(unresolved, key=lambda item: str(item.get("summary", item.get("id", ""))).lower()):
         summary = str(conflict.get("summary", conflict.get("id", "Untitled conflict")))
         path = str(conflict.get("staged_path", conflict.get("published_path", "")))
-        link = _relative_link(from_rel="vault/indexes/unresolved-conflicts.md", to_rel=path) if path else ""
+        link = _relative_link(from_rel="wiki/indexes/unresolved-conflicts.md", to_rel=path) if path else ""
         lines.append(f"- [{summary}]({link})" if link else f"- {summary}")
     return "\n".join(lines) + "\n"
 
@@ -407,7 +407,7 @@ def _health_review_index(health_findings: dict[str, dict]) -> str:
     for finding in sorted(staged, key=lambda item: str(item.get("summary", item.get("id", ""))).lower()):
         summary = str(finding.get("summary", finding.get("id", "Untitled finding")))
         path = str(finding.get("staged_path", ""))
-        link = _relative_link(from_rel="vault/indexes/health-review.md", to_rel=path) if path else ""
+        link = _relative_link(from_rel="wiki/indexes/health-review.md", to_rel=path) if path else ""
         lines.append(f"- [{summary}]({link})" if link else f"- {summary}")
     return "\n".join(lines) + "\n"
 
@@ -430,19 +430,19 @@ def _page_markdown(title: str, body: str, host: str, run_id: str, page_type: str
 
 
 def _page_type_for(rel: str) -> str:
-    if rel == "vault/index.md":
+    if rel == "wiki/index.md":
         return "overview"
-    if rel.startswith("vault/themes/"):
+    if rel.startswith("wiki/themes/"):
         return "theme"
-    if rel.startswith("vault/subthemes/"):
+    if rel.startswith("wiki/subthemes/"):
         return "subtheme"
-    if rel.startswith("vault/references/"):
+    if rel.startswith("wiki/references/"):
         return "reference"
     return "index"
 
 
 def _title_for(rel: str) -> str:
-    if rel == "vault/index.md":
+    if rel == "wiki/index.md":
         return "TellMe Knowledge Base"
     stem = Path(rel).stem.replace("-", " ")
     return " ".join(word.capitalize() for word in stem.split())
@@ -452,12 +452,12 @@ def _relative_link(from_rel: str, to_rel: str) -> str:
     if not to_rel:
         return ""
     from_dir = Path(from_rel).parent
-    if to_rel.startswith("vault/"):
-        return Path(to_rel).relative_to("vault").as_posix() if from_dir.as_posix() == "vault" else (
-            "../" + Path(to_rel).relative_to("vault").as_posix()
+    if to_rel.startswith("wiki/"):
+        return Path(to_rel).relative_to("wiki").as_posix() if from_dir.as_posix() == "wiki" else (
+            "../" + Path(to_rel).relative_to("wiki").as_posix()
         )
     if to_rel.startswith("staging/"):
-        prefix = "../" if from_dir.as_posix() == "vault" else "../../"
+        prefix = "../" if from_dir.as_posix() == "wiki" else "../../"
         return prefix + Path(to_rel).as_posix()
     return Path(to_rel).as_posix()
 
@@ -472,7 +472,7 @@ def _cleanup_stale_reader_facing_pages(
     state: ProjectState,
     desired_paths: set[str],
 ) -> None:
-    managed_prefixes = ("vault/themes/", "vault/subthemes/", "vault/references/")
+    managed_prefixes = ("wiki/themes/", "wiki/subthemes/", "wiki/references/")
     for rel_path in list(state.pages()):
         if not rel_path.startswith(managed_prefixes):
             continue

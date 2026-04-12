@@ -13,7 +13,7 @@ def test_query_reads_vault_first_and_writes_run_artifact(tmp_path: Path) -> None
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root)
-    page = runtime.vault_dir / "alpha.md"
+    page = runtime.wiki_dir / "alpha.md"
     page.write_text(
         "---\npage_type: note\nsources:\n  - raw/source.md\n---\n# Alpha\n\nLLM wiki context.",
         encoding="utf-8",
@@ -31,8 +31,8 @@ def test_query_reads_vault_first_and_writes_run_artifact(tmp_path: Path) -> None
     assert result.answer_path == f"runs/{run.run_id}/artifacts/query-answer.md"
     answer = (runtime.data_root / result.answer_path).read_text(encoding="utf-8")
     assert "What says alpha?" in answer
-    assert "vault/alpha.md" in answer
-    assert result.matched_pages == ["vault/alpha.md"]
+    assert "wiki/alpha.md" in answer
+    assert result.matched_pages == ["wiki/alpha.md"]
     assert result.staged_path is None
     assert result.host_task_path == f"runs/{run.run_id}/host-tasks/query-codex.json"
     assert (runtime.data_root / result.host_task_path).is_file()
@@ -42,7 +42,7 @@ def test_query_stage_writes_synthesis_candidate_without_publishing(tmp_path: Pat
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root)
-    (runtime.vault_dir / "beta.md").write_text(
+    (runtime.wiki_dir / "beta.md").write_text(
         "---\npage_type: note\nsources:\n  - raw/source.md\n---\n# Beta\n\nReusable answer material.",
         encoding="utf-8",
     )
@@ -61,13 +61,13 @@ def test_query_stage_writes_synthesis_candidate_without_publishing(tmp_path: Pat
     assert "page_type: synthesis" in staged
     assert "status: staged" in staged
     assert "question: beta reusable" in staged
-    assert "sources:\n  - vault/beta.md" in staged
-    assert not (runtime.vault_dir / "synthesis" / "beta-reusable.md").exists()
+    assert "sources:\n  - wiki/beta.md" in staged
+    assert not (runtime.wiki_dir / "synthesis" / "beta-reusable.md").exists()
 
     state = ProjectState.load(runtime.state_dir)
     synthesis = state.syntheses()["synthesis:beta-reusable"]
     assert synthesis["question"] == "beta reusable"
-    assert synthesis["sources"] == ["vault/beta.md"]
+    assert synthesis["sources"] == ["wiki/beta.md"]
     assert synthesis["staged_path"] == "staging/synthesis/beta-reusable.md"
     page = state.get_page("staging/synthesis/beta-reusable.md")
     assert page.page_type == "synthesis"

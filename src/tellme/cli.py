@@ -59,7 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_parser.add_argument("source")
     ingest_parser.set_defaults(handler=_handle_ingest)
 
-    lint_parser = subparsers.add_parser("lint", help="Run static vault checks")
+    lint_parser = subparsers.add_parser("lint", help="Run static wiki checks")
     lint_mode = lint_parser.add_mutually_exclusive_group()
     lint_mode.add_argument(
         "--health-handoff",
@@ -76,10 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lint_parser.set_defaults(handler=_handle_lint)
 
-    reconcile_parser = subparsers.add_parser("reconcile", help="Reconcile vault drift into state")
+    reconcile_parser = subparsers.add_parser("reconcile", help="Reconcile wiki drift into state")
     reconcile_parser.set_defaults(handler=_handle_reconcile)
 
-    publish_parser = subparsers.add_parser("publish", help="Publish reviewed staged graph pages to vault")
+    publish_parser = subparsers.add_parser("publish", help="Publish reviewed staged graph pages to wiki")
     publish_target = publish_parser.add_mutually_exclusive_group(required=True)
     publish_target.add_argument("--all", action="store_true", help="Publish all staged graph node pages")
     publish_target.add_argument("--path", help="Publish one staged graph page path")
@@ -94,7 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     publish_parser.set_defaults(handler=_handle_publish)
 
-    compile_parser = subparsers.add_parser("compile", help="Compile registered sources into vault pages")
+    compile_parser = subparsers.add_parser("compile", help="Compile registered sources into wiki pages")
     compile_mode = compile_parser.add_mutually_exclusive_group()
     compile_mode.add_argument(
         "--handoff",
@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     compile_parser.set_defaults(handler=_handle_compile)
 
-    query_parser = subparsers.add_parser("query", help="Query published vault content")
+    query_parser = subparsers.add_parser("query", help="Query published wiki content")
     query_parser.add_argument("question")
     query_parser.add_argument(
         "--stage",
@@ -253,7 +253,7 @@ def _handle_lint(args: argparse.Namespace) -> int:
         print(f"tellme lint: resolved health finding {run.outputs['resolved_finding_id']}")
         return 0
     if not issues:
-        print(f"tellme lint: no issues in {runtime.vault_dir}")
+        print(f"tellme lint: no issues in {runtime.wiki_dir}")
         return 0
     for issue in issues:
         print(f"{issue['severity']}: {issue['issue_type']}: {issue['path']}: {issue['message']}")

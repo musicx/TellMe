@@ -29,7 +29,7 @@ def test_load_runtime_uses_machine_path_overrides(tmp_path: Path, monkeypatch: p
     assert runtime.project_root == project_root.resolve()
     assert runtime.data_root == data_root.resolve()
     assert runtime.raw_dir == data_root.resolve() / "raw"
-    assert runtime.vault_dir == data_root.resolve() / "vault"
+    assert runtime.wiki_dir == data_root.resolve() / "wiki"
     assert runtime.project.name == "TellMe"
     assert runtime.machine is not None
     assert runtime.machine.name == "test-pc"
@@ -79,7 +79,7 @@ def test_load_runtime_uses_env_data_root_without_machine_override(
     assert runtime.runs_dir == data_root.resolve() / "runs"
     assert runtime.state_dir == data_root.resolve() / "state"
     assert runtime.staging_dir == data_root.resolve() / "staging"
-    assert runtime.vault_dir == data_root.resolve() / "vault"
+    assert runtime.wiki_dir == data_root.resolve() / "wiki"
 
 
 def test_load_runtime_falls_back_to_home_obsidian_data_root(
@@ -89,7 +89,7 @@ def test_load_runtime_falls_back_to_home_obsidian_data_root(
     project_root = tmp_path / "TellMe"
     (project_root / "config").mkdir(parents=True)
     (project_root / "config" / "project.toml").write_text(
-        "[project]\nname = \"TellMe\"\nmode = \"hybrid-orchestrator\"\nprimary_vault = \"primary_vault\"\n",
+        "[project]\nname = \"TellMe\"\nmode = \"hybrid-orchestrator\"\nprimary_wiki = \"primary_wiki\"\n",
         encoding="utf-8",
     )
     monkeypatch.delenv("OBSIDIAN_VAULT_PATH", raising=False)

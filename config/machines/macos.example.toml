@@ -4,7 +4,7 @@ platform = "macos"
 
 [paths]
 project_root = "/Users/yourname/Code/Home/AI/TellMe"
-primary_vault = "/Users/yourname/Code/Home/AI/TellMe/vault"
+primary_wiki = "/Users/yourname/Code/Home/AI/TellMe/wiki"
 raw_root = "/Users/yourname/Code/Home/AI/TellMe/raw"
 staging_root = "/Users/yourname/Code/Home/AI/TellMe/staging"
 state_root = "/Users/yourname/Code/Home/AI/TellMe/state"

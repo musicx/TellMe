@@ -13,12 +13,12 @@ def test_reconcile_updates_state_for_modified_published_page_without_overwrite(t
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, machine="test-pc")
-    page_path = runtime.vault_dir / "Page.md"
+    page_path = runtime.wiki_dir / "Page.md"
     page_path.write_text("---\ntitle: Page\nsources: [raw/page.md]\n---\nOriginal", encoding="utf-8")
     state = ProjectState.load(runtime.state_dir)
     state.upsert_page(
         PageRecord(
-            path="vault/Page.md",
+            path="wiki/Page.md",
             page_type="concept",
             status=ContentStatus.PUBLISHED,
             sha256="old-hash",
@@ -30,9 +30,9 @@ def test_reconcile_updates_state_for_modified_published_page_without_overwrite(t
     page_path.write_text("---\ntitle: Page\nsources: [raw/page.md]\n---\nHuman edit", encoding="utf-8")
     result = reconcile_vault(runtime=runtime, run_id="reconcile-run", host="codex")
 
-    assert result.changed_pages == ["vault/Page.md"]
+    assert result.changed_pages == ["wiki/Page.md"]
     assert page_path.read_text(encoding="utf-8").endswith("Human edit")
-    updated = ProjectState.load(runtime.state_dir).get_page("vault/Page.md")
+    updated = ProjectState.load(runtime.state_dir).get_page("wiki/Page.md")
     assert updated.status == ContentStatus.RECONCILED
     assert updated.sha256 == hashlib.sha256(page_path.read_bytes()).hexdigest()
     assert updated.last_run_id == "reconcile-run"

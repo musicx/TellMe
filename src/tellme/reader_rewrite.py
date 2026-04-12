@@ -31,20 +31,20 @@ class ReaderRewriteConsumeResult:
 def create_reader_rewrite_handoff(runtime: ProjectRuntime, run_id: str, host: str) -> ReaderRewriteHandoffResult:
     state = ProjectState.load(runtime.state_dir)
     reader_pages = sorted(
-        {"vault/index.md"}
+        {"wiki/index.md"}
         | {
         page_path
         for page_path, payload in state.pages().items()
         if payload.get("status") == ContentStatus.PUBLISHED.value
         and str(payload.get("page_type")) in {"overview", "theme", "subtheme", "reference"}
-        and page_path.startswith("vault/")
+        and page_path.startswith("wiki/")
         }
     )
     task = HostTask(
         command="reader-rewrite",
         run_id=run_id,
         host=host,
-        allowed_read_roots=["raw", "state", "vault", "staging"],
+        allowed_read_roots=["raw", "state", "wiki", "staging"],
         allowed_write_roots=["staging", "runs"],
         inputs=reader_pages,
         expected_output=f"staging/reader-rewrite/{run_id}.json",
@@ -165,7 +165,7 @@ Rewrite existing reader-facing pages so they read more naturally while preservin
 
 - `raw/`
 - `state/`
-- `vault/`
+- `wiki/`
 - `staging/`
 
 ## Allowed Write Roots
@@ -174,7 +174,7 @@ Rewrite existing reader-facing pages so they read more naturally while preservin
 - `runs/`
 
 Do not modify `raw/`.
-Do not write directly to `vault/`.
+Do not write directly to `wiki/`.
 
 ## Reader-Facing Pages In Scope
 

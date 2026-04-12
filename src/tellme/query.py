@@ -31,7 +31,7 @@ def query_vault(
         command="query",
         run_id=run_id,
         host=host,
-        allowed_read_roots=["vault", "state"],
+        allowed_read_roots=["wiki", "state"],
         allowed_write_roots=["staging", "runs"],
         inputs=[path for path, _score in matches],
         expected_output="artifacts/query-answer.md",
@@ -96,7 +96,7 @@ def query_vault(
 def _match_pages(runtime: ProjectRuntime, question: str) -> list[tuple[str, int]]:
     terms = [term for term in re.findall(r"[A-Za-z0-9_]+", question.lower()) if len(term) > 2]
     scored: list[tuple[str, int]] = []
-    for page in sorted(runtime.vault_dir.rglob("*.md")):
+    for page in sorted(runtime.wiki_dir.rglob("*.md")):
         text = page.read_text(encoding="utf-8", errors="replace").lower()
         score = sum(text.count(term) for term in terms)
         if score > 0:
@@ -118,7 +118,7 @@ def _answer_markdown(
         f"Host: {host}",
         f"Run: {run_id}",
         "",
-        "This deterministic V1 does not call an LLM. It reads published vault pages first and records the matching context for a host or human follow-up.",
+        "This deterministic V1 does not call an LLM. It reads published wiki pages first and records the matching context for a host or human follow-up.",
         "",
         "## Matched Published Pages",
         "",

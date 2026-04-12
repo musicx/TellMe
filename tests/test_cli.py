@@ -49,7 +49,7 @@ def test_init_creates_project_layout_and_machine_config(
         "templates",
     ]:
         assert (project_root / directory).is_dir()
-    for directory in ["raw", "runs", "staging", "state", "vault"]:
+    for directory in ["raw", "runs", "staging", "state", "wiki"]:
         assert not (project_root / directory).exists()
         assert (data_root / directory).is_dir()
 
@@ -68,7 +68,7 @@ def test_workflow_command_resolves_explicit_project(tmp_path: Path, monkeypatch)
     result = run_cli("--project", str(project_root), "lint", cwd=tmp_path)
 
     assert result.returncode == 0, result.stderr
-    assert str((data_root / "vault").resolve()) in result.stdout
+    assert str((data_root / "wiki").resolve()) in result.stdout
 
 
 def test_workflow_command_fails_outside_project(tmp_path: Path) -> None:
@@ -318,8 +318,8 @@ def test_cli_publish_all_publishes_staged_graph_nodes(tmp_path: Path, monkeypatc
 
     assert published.returncode == 0, published.stderr
     assert "tellme publish: published 1 page(s)" in published.stdout
-    assert "vault/references/codex-graph-candidate.md" in published.stdout
-    assert (data_root / "vault" / "references" / "codex-graph-candidate.md").is_file()
+    assert "wiki/references/codex-graph-candidate.md" in published.stdout
+    assert (data_root / "wiki" / "references" / "codex-graph-candidate.md").is_file()
 
 
 def test_cli_lint_consumes_health_result_and_stages_review_page(tmp_path: Path, monkeypatch) -> None:
@@ -338,7 +338,7 @@ def test_cli_lint_consumes_health_result_and_stages_review_page(tmp_path: Path, 
         "title": "Thin Node",
         "status": "published",
         "sources": ["raw/source.md"],
-        "published_path": "vault/concepts/thin-node.md"
+        "published_path": "wiki/concepts/thin-node.md"
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     result_path = data_root / "staging" / "health" / "health-run.json"
@@ -398,8 +398,8 @@ def test_cli_publish_all_publishes_staged_query_synthesis(tmp_path: Path, monkey
 
     assert published.returncode == 0, published.stderr
     assert "tellme publish: published 1 page(s)" in published.stdout
-    assert "vault/synthesis/alpha.md" in published.stdout
-    assert (data_root / "vault" / "synthesis" / "alpha.md").is_file()
+    assert "wiki/synthesis/alpha.md" in published.stdout
+    assert (data_root / "wiki" / "synthesis" / "alpha.md").is_file()
 
 
 def test_cli_publish_reader_rewrite_handoff_and_consume(tmp_path: Path, monkeypatch) -> None:

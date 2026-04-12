@@ -30,7 +30,7 @@ def test_create_health_handoff_writes_task_and_result_template(tmp_path: Path) -
             "title": "Thin Node",
             "status": "published",
             "sources": ["raw/source.md"],
-            "published_path": "vault/concepts/thin-node.md",
+            "published_path": "wiki/concepts/thin-node.md",
         }
     )
     state.upsert_conflict(
@@ -88,7 +88,7 @@ def test_consume_health_result_registers_findings_and_review_pages(tmp_path: Pat
             "title": "Thin Node",
             "status": "published",
             "sources": ["raw/source.md"],
-            "published_path": "vault/concepts/thin-node.md",
+            "published_path": "wiki/concepts/thin-node.md",
         }
     )
     result_path = runtime.staging_dir / "health" / "health-run.json"

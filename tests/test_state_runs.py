@@ -25,7 +25,7 @@ def test_project_state_persists_registered_sources(tmp_path: Path) -> None:
 def test_project_state_persists_page_records(tmp_path: Path) -> None:
     state = ProjectState.create(tmp_path / "state")
     page = PageRecord(
-        path="vault/wiki/Concepts/LLM Wiki.md",
+        path="wiki/wiki/Concepts/LLM Wiki.md",
         page_type="concept",
         status=ContentStatus.PUBLISHED,
         sha256="abc123",
@@ -37,7 +37,7 @@ def test_project_state_persists_page_records(tmp_path: Path) -> None:
     state.upsert_page(page)
     reloaded = ProjectState.load(tmp_path / "state")
 
-    assert reloaded.get_page("vault/wiki/Concepts/LLM Wiki.md") == page
+    assert reloaded.get_page("wiki/wiki/Concepts/LLM Wiki.md") == page
 
 
 def test_run_store_creates_updateable_run_records(tmp_path: Path) -> None:

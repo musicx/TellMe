@@ -30,7 +30,7 @@ class LintResult:
 
 
 def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> LintResult:
-    pages = sorted(runtime.vault_dir.rglob("*.md"))
+    pages = sorted(runtime.wiki_dir.rglob("*.md"))
     issues: list[LintIssue] = []
     titles: set[str] = set()
 

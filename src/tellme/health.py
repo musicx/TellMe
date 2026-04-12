@@ -43,7 +43,7 @@ def create_health_handoff(runtime: ProjectRuntime, run_id: str, host: str) -> He
         command="health",
         run_id=run_id,
         host=host,
-        allowed_read_roots=["state", "vault", "staging"],
+        allowed_read_roots=["state", "wiki", "staging"],
         allowed_write_roots=["staging", "runs"],
         inputs=[],
         expected_output=f"staging/health/{run_id}.json",
@@ -281,7 +281,7 @@ Each finding should include:
 - `confidence`
 
 Do not modify `raw/`.
-Do not publish directly to `vault/`.
+Do not publish directly to `wiki/`.
 """
 
 

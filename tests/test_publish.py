@@ -22,20 +22,20 @@ def test_publish_staged_graph_page_to_vault_and_updates_state(tmp_path: Path) ->
 
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex", staged_path=staged_page)
 
-    assert result.published_pages == ["vault/references/codex-graph-candidate.md"]
-    vault_page = runtime.vault_dir / "references" / "codex-graph-candidate.md"
+    assert result.published_pages == ["wiki/references/codex-graph-candidate.md"]
+    vault_page = runtime.wiki_dir / "references" / "codex-graph-candidate.md"
     assert vault_page.is_file()
     vault_text = vault_page.read_text(encoding="utf-8")
     assert "status: published" in vault_text
     assert "last_run_id: publish-run" in vault_text
 
     state = ProjectState.load(runtime.state_dir)
-    page = state.get_page("vault/references/codex-graph-candidate.md")
+    page = state.get_page("wiki/references/codex-graph-candidate.md")
     assert page.status == ContentStatus.PUBLISHED
-    assert page.published_path == "vault/references/codex-graph-candidate.md"
+    assert page.published_path == "wiki/references/codex-graph-candidate.md"
     node = state.nodes()["concept:codex-graph-candidate"]
     assert node["status"] == "published"
-    assert node["published_path"] == "vault/references/codex-graph-candidate.md"
+    assert node["published_path"] == "wiki/references/codex-graph-candidate.md"
     assert node["staged_path"] == "staging/concepts/codex-graph-candidate.md"
 
 
@@ -47,7 +47,7 @@ def test_publish_staged_graph_all_publishes_each_staged_node(tmp_path: Path) -> 
 
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
 
-    assert result.published_pages == ["vault/references/codex-graph-candidate.md"]
+    assert result.published_pages == ["wiki/references/codex-graph-candidate.md"]
 
 
 def test_publish_staged_graph_all_is_idempotent_after_state_update(tmp_path: Path) -> None:
@@ -68,7 +68,7 @@ def test_publish_rejects_non_staging_path(tmp_path: Path) -> None:
     runtime = load_runtime(project_root=project_root, host="codex")
 
     try:
-        publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex", staged_path="vault/unsafe.md")
+        publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex", staged_path="wiki/unsafe.md")
     except PublishError as exc:
         assert "staging/" in str(exc)
     else:
@@ -79,7 +79,7 @@ def test_publish_all_publishes_staged_synthesis_page(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, host="codex")
-    vault_source = runtime.vault_dir / "concepts" / "alpha.md"
+    vault_source = runtime.wiki_dir / "concepts" / "alpha.md"
     vault_source.parent.mkdir(parents=True)
     vault_source.write_text(
         "---\npage_type: concept\nsources:\n  - raw/source.md\n---\n# Alpha\n\nReusable alpha context.",
@@ -90,14 +90,14 @@ def test_publish_all_publishes_staged_synthesis_page(tmp_path: Path) -> None:
 
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
 
-    assert result.published_pages == ["vault/synthesis/alpha-context.md"]
-    assert (runtime.vault_dir / "synthesis" / "alpha-context.md").is_file()
+    assert result.published_pages == ["wiki/synthesis/alpha-context.md"]
+    assert (runtime.wiki_dir / "synthesis" / "alpha-context.md").is_file()
     state = ProjectState.load(runtime.state_dir)
-    assert state.get_page("vault/synthesis/alpha-context.md").status == ContentStatus.PUBLISHED
+    assert state.get_page("wiki/synthesis/alpha-context.md").status == ContentStatus.PUBLISHED
     assert state.syntheses()["synthesis:alpha-context"]["status"] == "published"
-    assert state.syntheses()["synthesis:alpha-context"]["published_path"] == "vault/synthesis/alpha-context.md"
-    assert (runtime.vault_dir / "index.md").is_file()
-    assert (runtime.vault_dir / "indexes" / "synthesis.md").is_file()
+    assert state.syntheses()["synthesis:alpha-context"]["published_path"] == "wiki/synthesis/alpha-context.md"
+    assert (runtime.wiki_dir / "index.md").is_file()
+    assert (runtime.wiki_dir / "indexes" / "synthesis.md").is_file()
 
 
 def test_publish_all_publishes_staged_output_page(tmp_path: Path) -> None:
@@ -107,7 +107,7 @@ def test_publish_all_publishes_staged_output_page(tmp_path: Path) -> None:
     staged = runtime.staging_dir / "outputs" / "research-brief.md"
     staged.parent.mkdir(parents=True)
     staged.write_text(
-        "---\npage_type: output\nstatus: staged\nsources:\n  - vault/concepts/alpha.md\n---\n# Research Brief\n",
+        "---\npage_type: output\nstatus: staged\nsources:\n  - wiki/concepts/alpha.md\n---\n# Research Brief\n",
         encoding="utf-8",
     )
     state = ProjectState.load(runtime.state_dir)
@@ -117,7 +117,7 @@ def test_publish_all_publishes_staged_output_page(tmp_path: Path) -> None:
             page_type="output",
             status=ContentStatus.STAGED,
             sha256="test-hash",
-            sources=["vault/concepts/alpha.md"],
+            sources=["wiki/concepts/alpha.md"],
             last_host="codex",
             last_run_id="run-1",
             staged_path="staging/outputs/research-brief.md",
@@ -129,7 +129,7 @@ def test_publish_all_publishes_staged_output_page(tmp_path: Path) -> None:
             "kind": "research_brief",
             "title": "Research Brief",
             "status": "staged",
-            "sources": ["vault/concepts/alpha.md"],
+            "sources": ["wiki/concepts/alpha.md"],
             "staged_path": "staging/outputs/research-brief.md",
             "last_host": "codex",
             "last_run_id": "run-1",
@@ -138,8 +138,8 @@ def test_publish_all_publishes_staged_output_page(tmp_path: Path) -> None:
 
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
 
-    assert result.published_pages == ["vault/outputs/research-brief.md"]
-    assert (runtime.vault_dir / "outputs" / "research-brief.md").is_file()
+    assert result.published_pages == ["wiki/outputs/research-brief.md"]
+    assert (runtime.wiki_dir / "outputs" / "research-brief.md").is_file()
     assert ProjectState.load(runtime.state_dir).outputs()["output:research-brief"]["status"] == "published"
 
 
@@ -169,7 +169,7 @@ def test_publish_all_skips_conflict_review_pages(tmp_path: Path) -> None:
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
 
     assert result.published_pages == []
-    assert not (runtime.vault_dir / "conflicts" / "review-me.md").exists()
+    assert not (runtime.wiki_dir / "conflicts" / "review-me.md").exists()
 
 
 def test_publish_generates_reader_facing_theme_subtheme_and_reference_pages(tmp_path: Path) -> None:
@@ -235,11 +235,11 @@ def test_publish_generates_reader_facing_theme_subtheme_and_reference_pages(tmp_
 
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
 
-    assert result.published_pages == ["vault/references/codex.md"]
-    assert (runtime.vault_dir / "references" / "codex.md").is_file()
-    assert (runtime.vault_dir / "themes" / "architecture.md").is_file()
-    assert (runtime.vault_dir / "subthemes" / "architecture-control-plane.md").is_file()
-    assert (runtime.vault_dir / "subthemes" / "architecture-hosts.md").is_file()
+    assert result.published_pages == ["wiki/references/codex.md"]
+    assert (runtime.wiki_dir / "references" / "codex.md").is_file()
+    assert (runtime.wiki_dir / "themes" / "architecture.md").is_file()
+    assert (runtime.wiki_dir / "subthemes" / "architecture-control-plane.md").is_file()
+    assert (runtime.wiki_dir / "subthemes" / "architecture-hosts.md").is_file()
 
 
 def test_create_reader_rewrite_handoff_writes_task_and_template(tmp_path: Path) -> None:
@@ -266,7 +266,7 @@ def test_create_reader_rewrite_handoff_writes_task_and_template(tmp_path: Path) 
     assert generate.result_template_path == "runs/rewrite-run/artifacts/reader-rewrite.template.json"
     task_markdown = (runtime.data_root / generate.task_markdown_path).read_text(encoding="utf-8")
     assert "TellMe Reader Rewrite Task" in task_markdown
-    assert "vault/index.md" in task_markdown
+    assert "wiki/index.md" in task_markdown
     template = json.loads((runtime.data_root / generate.result_template_path).read_text(encoding="utf-8"))
     assert template["candidate_type"] == "reader_page_rewrites"
     assert template["rewrites"] == []
@@ -336,8 +336,8 @@ def test_publish_all_publishes_staged_reader_rewrite_pages(tmp_path: Path) -> No
 
     result = publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
 
-    assert result.published_pages == ["vault/themes/architecture.md"]
-    theme_text = (runtime.vault_dir / "themes" / "architecture.md").read_text(encoding="utf-8")
+    assert result.published_pages == ["wiki/themes/architecture.md"]
+    theme_text = (runtime.wiki_dir / "themes" / "architecture.md").read_text(encoding="utf-8")
     assert "Rewritten theme body." in theme_text
 
 

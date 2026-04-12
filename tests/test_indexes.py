@@ -17,17 +17,17 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     result = generate_vault_indexes(runtime=runtime, run_id="index-run", host="codex")
 
     assert result.index_pages == [
-        "vault/index.md",
-        "vault/themes/architecture.md",
-        "vault/subthemes/architecture-control-plane.md",
-        "vault/references/codex-graph-candidate.md",
-        "vault/indexes/concepts.md",
-        "vault/indexes/entities.md",
-        "vault/indexes/synthesis.md",
-        "vault/indexes/unresolved-conflicts.md",
-        "vault/indexes/health-review.md",
+        "wiki/index.md",
+        "wiki/themes/architecture.md",
+        "wiki/subthemes/architecture-control-plane.md",
+        "wiki/references/codex-graph-candidate.md",
+        "wiki/indexes/concepts.md",
+        "wiki/indexes/entities.md",
+        "wiki/indexes/synthesis.md",
+        "wiki/indexes/unresolved-conflicts.md",
+        "wiki/indexes/health-review.md",
     ]
-    root_index = (runtime.vault_dir / "index.md").read_text(encoding="utf-8")
+    root_index = (runtime.wiki_dir / "index.md").read_text(encoding="utf-8")
     assert "TellMe Knowledge Base" in root_index
     assert "## Summary" in root_index
     assert "## Recommended Reading Path" in root_index
@@ -36,7 +36,7 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     assert "themes/architecture.md" in root_index
     assert "references/codex-graph-candidate.md" in root_index
     assert "indexes/health-review.md" in root_index
-    theme = (runtime.vault_dir / "themes" / "architecture.md").read_text(encoding="utf-8")
+    theme = (runtime.wiki_dir / "themes" / "architecture.md").read_text(encoding="utf-8")
     assert "## Summary" in theme
     assert "## Why This Theme Matters" in theme
     assert "## Core Question" in theme
@@ -49,7 +49,7 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     assert "This theme centers on" in theme
     assert "Control Plane" in theme
     assert "Codex Graph Candidate" in theme
-    subtheme = (runtime.vault_dir / "subthemes" / "architecture-control-plane.md").read_text(encoding="utf-8")
+    subtheme = (runtime.wiki_dir / "subthemes" / "architecture-control-plane.md").read_text(encoding="utf-8")
     assert "## Summary" in subtheme
     assert "## How This Fits" in subtheme
     assert "## Narrative" in subtheme
@@ -58,22 +58,22 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     assert "Control planes organize published knowledge." in subtheme
     assert "Within this subtheme" in subtheme
     assert "TellMe Control Plane" in subtheme
-    reference = (runtime.vault_dir / "references" / "codex-graph-candidate.md").read_text(encoding="utf-8")
+    reference = (runtime.wiki_dir / "references" / "codex-graph-candidate.md").read_text(encoding="utf-8")
     assert "page_type: reference" in reference
-    concepts = (runtime.vault_dir / "indexes" / "concepts.md").read_text(encoding="utf-8")
+    concepts = (runtime.wiki_dir / "indexes" / "concepts.md").read_text(encoding="utf-8")
     assert "Codex Graph Candidate" in concepts
     assert "../references/codex-graph-candidate.md" in concepts
-    synthesis = (runtime.vault_dir / "indexes" / "synthesis.md").read_text(encoding="utf-8")
+    synthesis = (runtime.wiki_dir / "indexes" / "synthesis.md").read_text(encoding="utf-8")
     assert "Alpha Synthesis" in synthesis
-    conflicts = (runtime.vault_dir / "indexes" / "unresolved-conflicts.md").read_text(encoding="utf-8")
+    conflicts = (runtime.wiki_dir / "indexes" / "unresolved-conflicts.md").read_text(encoding="utf-8")
     assert "Needs Review" in conflicts
-    health = (runtime.vault_dir / "indexes" / "health-review.md").read_text(encoding="utf-8")
+    health = (runtime.wiki_dir / "indexes" / "health-review.md").read_text(encoding="utf-8")
     assert "Thin Node Needs Enrichment" in health
     assert "../../staging/health/health-thin-node-needs-enrichment.md" in health
 
     state = ProjectState.load(runtime.state_dir)
-    assert state.get_page("vault/index.md").page_type == "overview"
-    assert state.indexes()["vault/index.md"]["last_run_id"] == "index-run"
+    assert state.get_page("wiki/index.md").page_type == "overview"
+    assert state.indexes()["wiki/index.md"]["last_run_id"] == "index-run"
 
 
 def test_generate_vault_indexes_handles_empty_state(tmp_path: Path) -> None:
@@ -83,13 +83,13 @@ def test_generate_vault_indexes_handles_empty_state(tmp_path: Path) -> None:
 
     generate_vault_indexes(runtime=runtime, run_id="index-run", host="codex")
 
-    concepts = (runtime.vault_dir / "indexes" / "concepts.md").read_text(encoding="utf-8")
+    concepts = (runtime.wiki_dir / "indexes" / "concepts.md").read_text(encoding="utf-8")
     assert "No published concepts yet." in concepts
-    conflicts = (runtime.vault_dir / "indexes" / "unresolved-conflicts.md").read_text(encoding="utf-8")
+    conflicts = (runtime.wiki_dir / "indexes" / "unresolved-conflicts.md").read_text(encoding="utf-8")
     assert "No unresolved conflicts." in conflicts
-    health = (runtime.vault_dir / "indexes" / "health-review.md").read_text(encoding="utf-8")
+    health = (runtime.wiki_dir / "indexes" / "health-review.md").read_text(encoding="utf-8")
     assert "No staged health findings." in health
-    root = (runtime.vault_dir / "index.md").read_text(encoding="utf-8")
+    root = (runtime.wiki_dir / "index.md").read_text(encoding="utf-8")
     assert "## Summary" in root
     assert "No reader-facing themes yet." in root
 
@@ -98,31 +98,31 @@ def test_generate_vault_indexes_removes_stale_reader_facing_pages(tmp_path: Path
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")
     runtime = load_runtime(project_root=project_root, host="codex")
-    stale_theme = runtime.vault_dir / "themes" / "old-theme.md"
+    stale_theme = runtime.wiki_dir / "themes" / "old-theme.md"
     stale_theme.parent.mkdir(parents=True, exist_ok=True)
     stale_theme.write_text("# Old Theme\n", encoding="utf-8")
     state = ProjectState.load(runtime.state_dir)
     state.upsert_page(
         PageRecord(
-            path="vault/themes/old-theme.md",
+            path="wiki/themes/old-theme.md",
             page_type="theme",
             status=ContentStatus.PUBLISHED,
             sha256="seed",
             sources=[],
             last_host="codex",
             last_run_id="seed-run",
-            published_path="vault/themes/old-theme.md",
+            published_path="wiki/themes/old-theme.md",
         )
     )
     state.upsert_index(
         {
-            "id": "vault/themes/old-theme.md",
-            "path": "vault/themes/old-theme.md",
+            "id": "wiki/themes/old-theme.md",
+            "path": "wiki/themes/old-theme.md",
             "title": "Old Theme",
             "status": "published",
             "last_host": "codex",
             "last_run_id": "seed-run",
-            "published_path": "vault/themes/old-theme.md",
+            "published_path": "wiki/themes/old-theme.md",
         }
     )
     _seed_index_state(runtime)
@@ -131,8 +131,8 @@ def test_generate_vault_indexes_removes_stale_reader_facing_pages(tmp_path: Path
 
     assert not stale_theme.exists()
     refreshed = ProjectState.load(runtime.state_dir)
-    assert "vault/themes/old-theme.md" not in refreshed.pages()
-    assert "vault/themes/old-theme.md" not in refreshed.indexes()
+    assert "wiki/themes/old-theme.md" not in refreshed.pages()
+    assert "wiki/themes/old-theme.md" not in refreshed.indexes()
 
 
 def _seed_index_state(runtime) -> None:
@@ -144,7 +144,7 @@ def _seed_index_state(runtime) -> None:
             "title": "Codex Graph Candidate",
             "status": "published",
             "sources": ["raw/source.md"],
-            "published_path": "vault/references/codex-graph-candidate.md",
+            "published_path": "wiki/references/codex-graph-candidate.md",
             "theme": "Architecture",
             "subtheme": "Control Plane",
             "reader_role": "reference",
@@ -189,7 +189,7 @@ def _seed_index_state(runtime) -> None:
             "title": "OpenAI",
             "status": "published",
             "sources": ["raw/source.md"],
-            "published_path": "vault/entities/openai.md",
+            "published_path": "wiki/entities/openai.md",
         }
     )
     state.upsert_synthesis(
@@ -197,8 +197,8 @@ def _seed_index_state(runtime) -> None:
             "id": "synthesis:alpha",
             "title": "Alpha Synthesis",
             "status": "published",
-            "sources": ["vault/concepts/codex-graph-candidate.md"],
-            "published_path": "vault/synthesis/alpha.md",
+            "sources": ["wiki/concepts/codex-graph-candidate.md"],
+            "published_path": "wiki/synthesis/alpha.md",
         }
     )
     state.upsert_conflict(
@@ -227,9 +227,9 @@ def _seed_index_state(runtime) -> None:
         }
     )
     for path, page_type in [
-        ("vault/references/codex-graph-candidate.md", "reference"),
-        ("vault/entities/openai.md", "entity"),
-        ("vault/synthesis/alpha.md", "synthesis"),
+        ("wiki/references/codex-graph-candidate.md", "reference"),
+        ("wiki/entities/openai.md", "entity"),
+        ("wiki/synthesis/alpha.md", "synthesis"),
     ]:
         state.upsert_page(
             PageRecord(

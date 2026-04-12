@@ -128,8 +128,8 @@ def _vault_path_for(staged_path: str) -> str:
     if not staged_path.startswith("staging/"):
         raise PublishError("publish target must be under staging/")
     if staged_path.startswith("staging/reader-rewrite/"):
-        return "vault/" + staged_path.removeprefix("staging/reader-rewrite/")
-    return "vault/" + staged_path.removeprefix("staging/")
+        return "wiki/" + staged_path.removeprefix("staging/reader-rewrite/")
+    return "wiki/" + staged_path.removeprefix("staging/")
 
 
 def _published_path_for_page(state: ProjectState, page: PageRecord) -> str | None:
@@ -138,7 +138,7 @@ def _published_path_for_page(state: ProjectState, page: PageRecord) -> str | Non
         reader_role = str((node or {}).get("reader_role", "reference"))
         if reader_role == "embedded":
             return None
-        return "vault/references/" + Path(page.path).name
+        return "wiki/references/" + Path(page.path).name
     return _vault_path_for(page.path)
 
 

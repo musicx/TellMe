@@ -2,7 +2,7 @@
 name = "TellMe"
 version = "0.1.0"
 mode = "hybrid-orchestrator"
-primary_vault = "primary_vault"
+primary_wiki = "primary_wiki"
 default_host = "codex"
 
 [data]
@@ -14,7 +14,7 @@ raw_dir = "raw"
 staging_dir = "staging"
 state_dir = "state"
 runs_dir = "runs"
-vault_dir = "vault"
+wiki_dir = "wiki"
 templates_dir = "templates"
 hosts_dir = "hosts"
 
@@ -41,6 +41,6 @@ model_policy = "host-routed"
 [knowledge_graph]
 primary_unit = "knowledge_point"
 raw_is_source_evidence = true
-vault_is_graph_projection = true
+wiki_is_graph_projection = true
 require_source_attribution = true
 conflict_policy = "explain-and-stage"

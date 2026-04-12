@@ -13,7 +13,11 @@ from .resolver import resolve_project_root
 class ProjectSettings:
     name: str
     mode: str
-    primary_vault: str
+    primary_wiki: str
+
+    @property
+    def primary_vault(self) -> str:
+        return self.primary_wiki
 
 
 @dataclass(frozen=True)
@@ -42,7 +46,11 @@ class ProjectRuntime:
     staging_dir: Path
     state_dir: Path
     runs_dir: Path
-    vault_dir: Path
+    wiki_dir: Path
+
+    @property
+    def vault_dir(self) -> Path:
+        return self.wiki_dir
 
 
 def load_runtime(
@@ -64,8 +72,10 @@ def load_runtime(
         machine_key = f"{key}_root"
         if machine_settings and machine_key in machine_settings.paths:
             return machine_settings.paths[machine_key]
-        if key == "vault" and machine_settings and "primary_vault" in machine_settings.paths:
-            return machine_settings.paths["primary_vault"]
+        if key == "wiki" and machine_settings:
+            for legacy_key in ("primary_wiki", "primary_vault"):
+                if legacy_key in machine_settings.paths:
+                    return machine_settings.paths[legacy_key]
         return (data_root / str(layout.get(f"{key}_dir", default))).resolve()
 
     return ProjectRuntime(
@@ -79,7 +89,7 @@ def load_runtime(
         staging_dir=path_for("staging", "staging"),
         state_dir=path_for("state", "state"),
         runs_dir=path_for("runs", "runs"),
-        vault_dir=path_for("vault", "vault"),
+        wiki_dir=path_for("wiki", "wiki"),
     )
 
 
@@ -93,7 +103,7 @@ def _project_settings(payload: dict[str, Any]) -> ProjectSettings:
     return ProjectSettings(
         name=str(project.get("name", "TellMe")),
         mode=str(project.get("mode", "hybrid-orchestrator")),
-        primary_vault=str(project.get("primary_vault", "primary_vault")),
+        primary_wiki=str(project.get("primary_wiki", project.get("primary_vault", "primary_wiki"))),
     )
 
 
@@ -130,7 +140,16 @@ def _load_machine(root: Path, machine: str | None) -> MachineSettings | None:
 def _machine_data_root(machine_settings: MachineSettings | None) -> Path | None:
     if not machine_settings:
         return None
-    for key in ("raw_root", "staging_root", "state_root", "runs_root", "vault_root", "primary_vault"):
+    for key in (
+        "raw_root",
+        "staging_root",
+        "state_root",
+        "runs_root",
+        "wiki_root",
+        "primary_wiki",
+        "vault_root",
+        "primary_vault",
+    ):
         if key in machine_settings.paths:
             return machine_settings.paths[key].parent.resolve()
     return None
