@@ -64,6 +64,10 @@ def test_create_health_handoff_writes_task_and_result_template(tmp_path: Path) -
     assert "conflict:needs-review" in task_markdown
     assert "concept:missing" in task_markdown
     assert "thin_node" in task_markdown
+    assert "readability and reader guidance issues" in task_markdown
+    assert "weak_summary" in task_markdown
+    assert "theme_needs_reading_path" in task_markdown
+    assert "reference_too_card_like" in task_markdown
 
     template = json.loads((runtime.data_root / result.result_template_path).read_text(encoding="utf-8"))
     assert template["schema_version"] == 1

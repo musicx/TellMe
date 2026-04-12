@@ -250,6 +250,8 @@ Host: `{task.host}`
 
 Review the TellMe wiki graph for missing knowledge, weak links, contradictions, duplicate concepts, thin nodes, and useful new article candidates. Write health findings to `{task.expected_output}` and keep all generated material under `staging/` or `runs/`.
 
+Also review the published wiki as a reading surface. Look for readability and reader guidance issues, not only graph coverage issues.
+
 ## Existing Graph Nodes
 
 {_bullet_list(summary["nodes"], empty="No graph nodes.")}
@@ -268,6 +270,24 @@ Use finding type `thin_node` for nodes that need stronger claims, evidence, or s
 
 {_bullet_list(summary["orphan_relations"], empty="No orphan relations detected.")}
 
+## Reader-Facing Readability Review
+
+Audit published `overview`, `theme`, `subtheme`, and `reference` pages for:
+
+- weak or generic summaries
+- pages that open with metadata or claim dumps instead of orientation
+- themes that list nodes but do not provide a reading path
+- references that feel like extracted cards instead of precise definitions
+- pages where evidence overwhelms explanation
+
+Use these finding types when relevant:
+
+- `weak_summary`
+- `missing_orientation`
+- `theme_needs_reading_path`
+- `reference_too_card_like`
+- `evidence_overwhelms_explanation`
+
 ## Required Health Finding Schema
 
 Each finding should include:
@@ -279,6 +299,8 @@ Each finding should include:
 - `sources`
 - `recommendation`
 - `confidence`
+
+Recommendations should say how the page should be rewritten or reorganized, not only that it is weak.
 
 Do not modify `raw/`.
 Do not publish directly to `wiki/`.
@@ -369,6 +391,11 @@ def _suggested_next_action(finding_type: str) -> str:
         "weak_link": "propose_relation",
         "duplicate_concept": "review_duplicate",
         "conflict_followup": "review_conflict",
+        "weak_summary": "rewrite_page_summary",
+        "missing_orientation": "reader_rewrite",
+        "theme_needs_reading_path": "reader_rewrite",
+        "reference_too_card_like": "reader_rewrite",
+        "evidence_overwhelms_explanation": "reader_rewrite",
     }.get(finding_type, "manual_review")
 
 

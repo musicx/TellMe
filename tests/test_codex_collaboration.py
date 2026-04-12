@@ -35,6 +35,10 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
     assert "concepts, claims, relations, and conflicts" in task_markdown
     assert "raw/source.md" in task_markdown
     assert "Do not modify `raw/`" in task_markdown
+    assert "This handoff is for extraction and graph alignment" in task_markdown
+    assert "Do not try to write the final reader-facing article" in task_markdown
+    assert "`theme` and `subtheme`" in task_markdown
+    assert "`reader_role`" in task_markdown
 
     template = json.loads((runtime.data_root / result.result_template_path).read_text(encoding="utf-8"))
     assert template["schema_version"] == 1
@@ -70,6 +74,7 @@ def test_codex_handoff_includes_existing_graph_nodes(tmp_path: Path) -> None:
     assert "## Existing Graph Nodes" in task_markdown
     assert "`concept:existing-node`" in task_markdown
     assert "wiki/concepts/existing-node.md" in task_markdown
+    assert "reader-facing publication layer later" in task_markdown
 
 
 def test_codex_handoff_can_focus_on_health_finding_context(tmp_path: Path) -> None:

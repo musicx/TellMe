@@ -182,6 +182,17 @@ Host: `codex`
 
 Produce a structured knowledge graph update candidate from the registered TellMe sources. Extract concepts, claims, relations, and conflicts; compare them with existing `wiki/` graph pages when relevant; write the candidate JSON under `staging/graph/candidates/`, then write a result JSON artifact at `{task.expected_output}`.
 
+## Working Mode
+
+This handoff is for extraction and graph alignment, not final prose publication.
+
+- Distill source-backed knowledge into stable nodes, claims, relations, and conflicts.
+- Compare against existing graph pages so you enrich what already exists instead of duplicating it.
+- Do not try to write the final reader-facing article. That happens in the reader-facing publication layer later.
+- Favor precise, factual summaries over rhetorical or chapter-like writing.
+- When possible, make node summaries 1-2 tight sentences that explain what the node is and why it matters.
+- Avoid claim dumps inside `summary`; detailed points belong in `claims`.
+
 ## Allowed Read Roots
 
 - `raw/`
@@ -219,6 +230,18 @@ The `output_path` file must be a graph candidate JSON with:
 - `claims`: atomic sourced statements with `id`, `subject`, `text`, and `sources`
 - `relations`: sourced edges with `source`, `target`, `type`, and `sources`
 - `conflicts`: apparent contradictions or tensions with source-backed explanation candidates
+
+## Node Quality Rules
+
+For each node:
+
+- `summary` should define the node in plain language and explain why it matters in this corpus.
+- `summary` should read like an opening paragraph seed, not like a bullet list or metadata dump.
+- If the node clearly belongs in a chapter-like topic, include optional `theme` and `subtheme`.
+- Choose optional `reader_role` deliberately:
+  - `reference` for stable pages that should stand alone in the published wiki
+  - `embedded` for supporting ideas that should mainly strengthen theme or subtheme pages
+- Prefer fewer, stronger nodes over many thin, overlapping nodes.
 """
 
 

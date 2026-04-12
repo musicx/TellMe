@@ -161,6 +161,8 @@ Host: `{task.host}`
 
 Rewrite existing reader-facing pages so they read more naturally while preserving source traceability and page role boundaries.
 
+This is a structural rewrite task, not cosmetic polishing. Improve orientation, narrative flow, and reading order while keeping the page faithful to its sources and page role.
+
 ## Allowed Read Roots
 
 - `raw/`
@@ -179,6 +181,49 @@ Do not write directly to `wiki/`.
 ## Reader-Facing Pages In Scope
 
 {pages}
+
+## Page Role Contracts
+
+Overview pages:
+
+- Act like a front door to the wiki.
+- Start by orienting the reader: what this knowledge base covers, what matters most, and how to read it.
+- Prefer a guided path over a long list of links.
+
+Theme pages:
+
+- Read like chapter pages, not node inventories.
+- Open with the theme's main idea and why it matters.
+- Explain the major subthemes in a meaningful order.
+- Use claims and references to support the narrative, not replace it.
+
+Subtheme pages:
+
+- Explain one stable branch within a theme.
+- Make the connection to the parent theme explicit.
+- Keep a clear center of gravity; avoid turning into a miscellaneous note pile.
+
+Reference pages:
+
+- Be short, precise, and definition-first.
+- Clarify what the thing is, why it matters, and where it fits.
+- Do not turn into a full theme page or a raw extraction card.
+
+## Anti-patterns to remove
+
+- summary-plus-bullet-dump structure with no opening orientation
+- lists of claims or relations used as the main body
+- evidence sections that overwhelm the explanation
+- repetitive prose that restates the same point in slightly different words
+- pages that read like extracted metadata rather than authored wiki content
+
+## Rewrite Rules
+
+- Preserve source traceability and page role boundaries.
+- Keep frontmatter-compatible content and valid markdown.
+- Prefer explanation first, evidence second.
+- Make the first paragraph carry real orientation work.
+- When a page is too thin to support a full rewrite, tighten it into a precise short page instead of padding it out.
 
 ## Required Result JSON
 
