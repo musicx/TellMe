@@ -391,7 +391,10 @@ def _bullet_list(items: list[str], empty: str) -> str:
 
 
 def _relative(root, path) -> str:
-    return path.resolve().relative_to(root.resolve()).as_posix()
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
 
 
 def _slug(value: str) -> str:

@@ -136,7 +136,10 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
 
 
 def _relative(root: Path, path: Path) -> str:
-    return path.resolve().relative_to(root.resolve()).as_posix()
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
 
 
 def _page_titles(page: Path, frontmatter: dict, body: str) -> set[str]:

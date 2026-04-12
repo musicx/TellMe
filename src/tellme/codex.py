@@ -260,4 +260,7 @@ def _health_finding_markdown(health_finding: dict | None) -> str:
 
 
 def _relative(root: Path, path: Path) -> str:
-    return path.resolve().relative_to(root.resolve()).as_posix()
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
