@@ -25,7 +25,7 @@ def test_cli_help_lists_mvp_commands(tmp_path: Path) -> None:
     result = run_cli("--help", cwd=tmp_path)
 
     assert result.returncode == 0
-    for command in ["init", "ingest", "compile", "query", "lint", "reconcile", "publish"]:
+    for command in ["init", "ingest", "compile", "query", "lint", "reconcile", "publish", "refresh-reader"]:
         assert command in result.stdout
 
 
@@ -596,3 +596,137 @@ def test_cli_compile_handoff_requires_codex_host(tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "--handoff and --consume-result require --host codex" in result.stderr
+
+
+def test_cli_refresh_reader_prepare_writes_graph_handoff(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nReader refresh source.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+
+    result = run_cli("--project", str(project_root), "--host", "codex", "refresh-reader", cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert "tellme refresh-reader: graph task" in result.stdout
+    assert "compile-codex.md" in result.stdout
+    assert "codex-result.template.json" in result.stdout
+
+
+def test_cli_refresh_reader_consumes_graph_result_and_generates_rewrite_handoff(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nReader refresh source.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
+    run_cli("--project", str(project_root), "--host", "codex", "refresh-reader", cwd=tmp_path)
+
+    candidate = data_root / "staging" / "graph" / "candidates" / "candidate.json"
+    candidate.parent.mkdir(parents=True)
+    candidate.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "knowledge_graph_update",
+                "source_references": ["raw/source.md"],
+                "nodes": [
+                    {
+                        "id": "concept:reader-refresh",
+                        "kind": "concept",
+                        "title": "Reader Refresh",
+                        "summary": "Reader refresh summary.",
+                        "sources": ["raw/source.md"],
+                        "theme": "Refresh",
+                        "subtheme": "Flow",
+                        "reader_role": "reference",
+                    }
+                ],
+                "claims": [],
+                "relations": [],
+                "conflicts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result_path = data_root / "runs" / "codex-refresh-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "succeeded",
+                "host": "codex",
+                "run_id": "handoff-run",
+                "output_path": "staging/graph/candidates/candidate.json",
+                "source_references": ["raw/source.md"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "refresh-reader",
+        "--consume-graph-result",
+        "runs/codex-refresh-result.json",
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "tellme refresh-reader: consumed graph result staging/concepts/reader-refresh.md" in result.stdout
+    assert "tellme refresh-reader: published 1 page(s)" in result.stdout
+    assert "wiki/references/reader-refresh.md" in result.stdout
+    assert "tellme refresh-reader: reader rewrite task" in result.stdout
+    assert "reader-rewrite-codex.md" in result.stdout
+
+
+def test_cli_refresh_reader_consumes_rewrite_result_and_runs_lint(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+
+    rewrite_result = data_root / "staging" / "reader-rewrite" / "rewrite.json"
+    rewrite_result.parent.mkdir(parents=True)
+    rewrite_result.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "reader_page_rewrites",
+                "run_id": "rewrite-run",
+                "host": "codex",
+                "rewrites": [
+                    {
+                        "page_type": "theme",
+                        "target_path": "staging/reader-rewrite/themes/architecture.md",
+                        "sources": ["raw/source.md"],
+                        "content": "---\npage_type: theme\nstatus: staged\nsources: [raw/source.md]\n---\n# Architecture\n\nRewritten theme body.\n",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_cli(
+        "--project",
+        str(project_root),
+        "--host",
+        "codex",
+        "refresh-reader",
+        "--consume-reader-rewrite",
+        "staging/reader-rewrite/rewrite.json",
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "tellme refresh-reader: consumed reader rewrite staging/reader-rewrite/themes/architecture.md" in result.stdout
+    assert "tellme refresh-reader: published 1 page(s)" in result.stdout
+    assert "wiki/themes/architecture.md" in result.stdout
+    assert "tellme refresh-reader: lint clean" in result.stdout

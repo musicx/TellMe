@@ -21,6 +21,11 @@ from .linting import lint_vault
 from .project import init_project
 from .publish import PublishError, publish_staged_graph
 from .query import query_vault
+from .refresh_reader import (
+    consume_graph_result_for_reader_refresh,
+    consume_reader_rewrite_for_refresh,
+    prepare_refresh_reader,
+)
 from .reader_rewrite import (
     ReaderRewriteError,
     consume_reader_rewrite_result,
@@ -32,7 +37,7 @@ from .runs import RunStore
 from .workflow import run_workflow
 
 
-COMMANDS = ("init", "ingest", "compile", "query", "lint", "reconcile", "publish")
+COMMANDS = ("init", "ingest", "compile", "query", "lint", "reconcile", "publish", "refresh-reader")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -119,6 +124,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write a reviewable query answer candidate under staging/queries/",
     )
     query_parser.set_defaults(handler=_handle_query)
+
+    refresh_parser = subparsers.add_parser(
+        "refresh-reader",
+        help="Run the staged reader refresh workflow",
+    )
+    refresh_mode = refresh_parser.add_mutually_exclusive_group()
+    refresh_mode.add_argument(
+        "--consume-graph-result",
+        help="Consume a Codex graph result JSON, publish it, and generate a reader rewrite handoff",
+    )
+    refresh_mode.add_argument(
+        "--consume-reader-rewrite",
+        help="Consume a reader rewrite result JSON, publish it, and run lint",
+    )
+    refresh_parser.add_argument(
+        "--health-finding",
+        help="Focus the graph handoff on one staged health finding id",
+    )
+    refresh_parser.set_defaults(handler=_handle_refresh_reader)
 
     return parser
 
@@ -459,6 +483,119 @@ def _handle_query(args: argparse.Namespace) -> int:
     print(f"tellme query: wrote {run.outputs['answer_path']}")
     if run.outputs.get("staged_path"):
         print(f"tellme query: staged {run.outputs['staged_path']}")
+    return 0
+
+
+def _handle_refresh_reader(args: argparse.Namespace) -> int:
+    runtime = _load_runtime_from_args(args)
+    if runtime is None:
+        return 2
+    if args.host != "codex":
+        print("refresh-reader requires --host codex", file=sys.stderr)
+        return 2
+    runs = RunStore(runtime.runs_dir)
+
+    def operation(run):
+        if args.consume_graph_result:
+            result_path = Path(args.consume_graph_result)
+            if not result_path.is_absolute():
+                data_result_path = runtime.data_root / result_path
+                result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
+            result = consume_graph_result_for_reader_refresh(
+                runtime=runtime,
+                run_id=run.run_id,
+                host=args.host,
+                result_path=result_path,
+            )
+            return {
+                "consumed_graph_path": result.consumed_graph_path,
+                "graph_staged_pages": result.graph_staged_pages,
+                "published_pages": result.published_pages,
+                "rewrite_task_markdown_path": result.rewrite_task_markdown_path,
+                "rewrite_result_template_path": result.rewrite_result_template_path,
+            }
+        if args.consume_reader_rewrite:
+            result_path = Path(args.consume_reader_rewrite)
+            if not result_path.is_absolute():
+                data_result_path = runtime.data_root / result_path
+                result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
+            result = consume_reader_rewrite_for_refresh(
+                runtime=runtime,
+                run_id=run.run_id,
+                host=args.host,
+                result_path=result_path,
+            )
+            return {
+                "consumed_rewrite_path": result.consumed_rewrite_path,
+                "rewrite_staged_pages": result.rewrite_staged_pages,
+                "published_pages": result.published_pages,
+                "issues": [
+                    {
+                        "issue_type": issue.issue_type,
+                        "path": issue.path,
+                        "message": issue.message,
+                        "severity": issue.severity,
+                    }
+                    for issue in result.lint_result.issues
+                ],
+            }
+        result = prepare_refresh_reader(
+            runtime=runtime,
+            run_id=run.run_id,
+            health_finding_id=args.health_finding,
+        )
+        return {
+            "graph_task_markdown_path": result.graph_task_markdown_path,
+            "graph_result_template_path": result.graph_result_template_path,
+        }
+
+    try:
+        run = run_workflow(
+            project_root=runtime.project_root,
+            runs=runs,
+            command="refresh-reader",
+            host=args.host,
+            inputs={
+                "consume_graph_result": args.consume_graph_result,
+                "consume_reader_rewrite": args.consume_reader_rewrite,
+                "health_finding": args.health_finding,
+            },
+            operation=operation,
+        )
+    except (CodexResultError, CodexHandoffError, PublishError, ReaderRewriteError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    if args.consume_graph_result:
+        print(f"tellme refresh-reader: consumed graph result {run.outputs['consumed_graph_path']}")
+        print(f"tellme refresh-reader: published {len(run.outputs.get('published_pages', []))} page(s)")
+        for page in run.outputs.get("published_pages", []):
+            print(page)
+        print("tellme refresh-reader: reader rewrite task")
+        print(run.outputs["rewrite_task_markdown_path"])
+        print("tellme refresh-reader: reader rewrite result template")
+        print(run.outputs["rewrite_result_template_path"])
+        return 0
+
+    if args.consume_reader_rewrite:
+        rewrite_pages = run.outputs.get("rewrite_staged_pages", [])
+        first_page = rewrite_pages[0] if rewrite_pages else run.outputs["consumed_rewrite_path"]
+        print(f"tellme refresh-reader: consumed reader rewrite {first_page}")
+        print(f"tellme refresh-reader: published {len(run.outputs.get('published_pages', []))} page(s)")
+        for page in run.outputs.get("published_pages", []):
+            print(page)
+        issues = run.outputs.get("issues", [])
+        if not issues:
+            print("tellme refresh-reader: lint clean")
+            return 0
+        for issue in issues:
+            print(f"{issue['severity']}: {issue['issue_type']}: {issue['path']}: {issue['message']}")
+        return 1
+
+    print("tellme refresh-reader: graph task")
+    print(run.outputs["graph_task_markdown_path"])
+    print("tellme refresh-reader: graph result template")
+    print(run.outputs["graph_result_template_path"])
     return 0
 
 
