@@ -58,7 +58,7 @@ def test_create_health_handoff_writes_task_and_result_template(tmp_path: Path) -
     assert result.task_json_path == "runs/health-run/host-tasks/health-codex.json"
     assert result.task_markdown_path == "runs/health-run/host-tasks/health-codex.md"
     assert result.result_template_path == "runs/health-run/artifacts/health-result.template.json"
-    task_markdown = (runtime.data_root / result.task_markdown_path).read_text(encoding="utf-8")
+    task_markdown = runtime.resolve_path(result.task_markdown_path).read_text(encoding="utf-8")
     assert "TellMe Health Reflection Task" in task_markdown
     assert "`concept:thin-node`" in task_markdown
     assert "conflict:needs-review" in task_markdown
@@ -69,7 +69,7 @@ def test_create_health_handoff_writes_task_and_result_template(tmp_path: Path) -
     assert "theme_needs_reading_path" in task_markdown
     assert "reference_too_card_like" in task_markdown
 
-    template = json.loads((runtime.data_root / result.result_template_path).read_text(encoding="utf-8"))
+    template = json.loads(runtime.resolve_path(result.result_template_path).read_text(encoding="utf-8"))
     assert template["schema_version"] == 1
     assert template["candidate_type"] == "health_findings"
     assert template["output_path"] == "staging/health/health-run.json"

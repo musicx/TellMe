@@ -53,6 +53,8 @@ primary_wiki = "primary_wiki"
 [data]
 root_env = "OBSIDIAN_VAULT_PATH"
 fallback_root = "~/.obsidian/llm_wiki"
+runtime_root_env = "TELLME_RUNTIME_ROOT"
+runtime_fallback_root = "~/.tmp/tellme"
 
 [layout]
 raw_dir = "raw"
@@ -87,6 +89,7 @@ check_running_runs = true
 def _machine_toml(machine: str, project_root: Path) -> str:
     root = str(project_root)
     data_root = _default_data_root()
+    runtime_root = _default_runtime_root(project_root)
     return f"""[machine]
 name = "{machine}"
 platform = "{_platform_name()}"
@@ -96,9 +99,9 @@ project_root = "{_toml_escape(root)}"
 primary_wiki = "{_toml_escape(str(data_root / "wiki"))}"
 wiki_root = "{_toml_escape(str(data_root / "wiki"))}"
 raw_root = "{_toml_escape(str(data_root / "raw"))}"
-staging_root = "{_toml_escape(str(data_root / "staging"))}"
-state_root = "{_toml_escape(str(data_root / "state"))}"
-runs_root = "{_toml_escape(str(data_root / "runs"))}"
+staging_root = "{_toml_escape(str(runtime_root / "staging"))}"
+state_root = "{_toml_escape(str(runtime_root / "state"))}"
+runs_root = "{_toml_escape(str(runtime_root / "runs"))}"
 """
 
 
@@ -123,6 +126,15 @@ def _default_data_root() -> Path:
     return (Path.home() / ".obsidian" / "llm_wiki").resolve()
 
 
+def _default_runtime_root(project_root: Path) -> Path:
+    env_value = os.environ.get("TELLME_RUNTIME_ROOT", "").strip()
+    if env_value:
+        return Path(env_value).expanduser().resolve()
+    base = (Path.home() / ".tmp" / "tellme").resolve()
+    slug = project_root.resolve().as_posix().strip("/").replace("/", "-") or "tellme"
+    return (base / slug).resolve()
+
+
 def _data_paths(project_root: Path, machine: str) -> dict[str, Path]:
     machine_path = project_root / "config" / "machines" / f"{machine}.toml"
     if machine_path.exists():
@@ -134,17 +146,24 @@ def _data_paths(project_root: Path, machine: str) -> dict[str, Path]:
                     str(paths.get("primary_wiki", paths.get("primary_vault", _default_data_root() / "wiki")))
                 ).expanduser().resolve(),
                 "raw_root": Path(str(paths.get("raw_root", _default_data_root() / "raw"))).expanduser().resolve(),
-                "staging_root": Path(str(paths.get("staging_root", _default_data_root() / "staging"))).expanduser().resolve(),
-                "state_root": Path(str(paths.get("state_root", _default_data_root() / "state"))).expanduser().resolve(),
-                "runs_root": Path(str(paths.get("runs_root", _default_data_root() / "runs"))).expanduser().resolve(),
+                "staging_root": Path(
+                    str(paths.get("staging_root", _default_runtime_root(project_root) / "staging"))
+                ).expanduser().resolve(),
+                "state_root": Path(
+                    str(paths.get("state_root", _default_runtime_root(project_root) / "state"))
+                ).expanduser().resolve(),
+                "runs_root": Path(
+                    str(paths.get("runs_root", _default_runtime_root(project_root) / "runs"))
+                ).expanduser().resolve(),
             }
     data_root = _default_data_root()
+    runtime_root = _default_runtime_root(project_root)
     return {
         "primary_wiki": data_root / "wiki",
         "raw_root": data_root / "raw",
-        "staging_root": data_root / "staging",
-        "state_root": data_root / "state",
-        "runs_root": data_root / "runs",
+        "staging_root": runtime_root / "staging",
+        "state_root": runtime_root / "state",
+        "runs_root": runtime_root / "runs",
     }
 
 

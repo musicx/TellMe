@@ -8,6 +8,8 @@ default_host = "codex"
 [data]
 root_env = "OBSIDIAN_VAULT_PATH"
 fallback_root = "~/.obsidian/llm_wiki"
+runtime_root_env = "TELLME_RUNTIME_ROOT"
+runtime_fallback_root = "~/.tmp/tellme"
 
 [layout]
 raw_dir = "raw"

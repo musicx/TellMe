@@ -264,7 +264,7 @@ def test_create_reader_rewrite_handoff_writes_task_and_template(tmp_path: Path) 
 
     assert generate.task_markdown_path == "runs/rewrite-run/host-tasks/reader-rewrite-codex.md"
     assert generate.result_template_path == "runs/rewrite-run/artifacts/reader-rewrite.template.json"
-    task_markdown = (runtime.data_root / generate.task_markdown_path).read_text(encoding="utf-8")
+    task_markdown = runtime.resolve_path(generate.task_markdown_path).read_text(encoding="utf-8")
     assert "TellMe Reader Rewrite Task" in task_markdown
     assert "wiki/index.md" in task_markdown
     assert "Page Role Contracts" in task_markdown
@@ -272,7 +272,7 @@ def test_create_reader_rewrite_handoff_writes_task_and_template(tmp_path: Path) 
     assert "Theme pages" in task_markdown
     assert "Reference pages" in task_markdown
     assert "Anti-patterns to remove" in task_markdown
-    template = json.loads((runtime.data_root / generate.result_template_path).read_text(encoding="utf-8"))
+    template = json.loads(runtime.resolve_path(generate.result_template_path).read_text(encoding="utf-8"))
     assert template["candidate_type"] == "reader_page_rewrites"
     assert template["rewrites"] == []
 

@@ -212,7 +212,7 @@ def _handle_lint(args: argparse.Namespace) -> int:
         if args.consume_health_result:
             result_path = Path(args.consume_health_result)
             if not result_path.is_absolute():
-                data_result_path = runtime.data_root / result_path
+                data_result_path = runtime.resolve_path(result_path)
                 result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
             result = consume_health_result(
                 runtime=runtime,
@@ -326,7 +326,7 @@ def _handle_publish(args: argparse.Namespace) -> int:
         if args.consume_reader_rewrite:
             result_path = Path(args.consume_reader_rewrite)
             if not result_path.is_absolute():
-                data_result_path = runtime.data_root / result_path
+                data_result_path = runtime.resolve_path(result_path)
                 result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
             result = consume_reader_rewrite_result(
                 runtime=runtime,
@@ -400,7 +400,7 @@ def _handle_compile(args: argparse.Namespace) -> int:
         if args.consume_result:
             result_path = Path(args.consume_result)
             if not result_path.is_absolute():
-                data_result_path = runtime.data_root / result_path
+                data_result_path = runtime.resolve_path(result_path)
                 result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
             result = consume_codex_result(
                 runtime=runtime,
@@ -499,7 +499,7 @@ def _handle_refresh_reader(args: argparse.Namespace) -> int:
         if args.consume_graph_result:
             result_path = Path(args.consume_graph_result)
             if not result_path.is_absolute():
-                data_result_path = runtime.data_root / result_path
+                data_result_path = runtime.resolve_path(result_path)
                 result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
             result = consume_graph_result_for_reader_refresh(
                 runtime=runtime,
@@ -517,7 +517,7 @@ def _handle_refresh_reader(args: argparse.Namespace) -> int:
         if args.consume_reader_rewrite:
             result_path = Path(args.consume_reader_rewrite)
             if not result_path.is_absolute():
-                data_result_path = runtime.data_root / result_path
+                data_result_path = runtime.resolve_path(result_path)
                 result_path = data_result_path if data_result_path.exists() else runtime.project_root / result_path
             result = consume_reader_rewrite_for_refresh(
                 runtime=runtime,

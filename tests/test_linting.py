@@ -64,17 +64,22 @@ def test_lint_vault_accepts_wikilink_matching_page_heading(tmp_path: Path) -> No
     assert not any(issue.issue_type == "broken_link" for issue in result.issues)
 
 
-def test_cli_lint_creates_run_record(tmp_path: Path) -> None:
+def test_cli_lint_creates_run_record(tmp_path: Path, monkeypatch) -> None:
     from test_cli import run_cli
+    from tellme.config import load_runtime
 
     project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    runtime_root = tmp_path / "tellme-runtime"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    monkeypatch.setenv("TELLME_RUNTIME_ROOT", str(runtime_root))
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
 
     result = run_cli("--project", str(project_root), "lint", cwd=tmp_path)
 
     assert result.returncode == 0, result.stderr
-    data_root = Path(os.environ["OBSIDIAN_VAULT_PATH"])
-    run_dirs = list((data_root / "runs").glob("*/run.json"))
+    runtime = load_runtime(project_root=project_root)
+    run_dirs = list(runtime.runs_dir.glob("*/run.json"))
     assert len(run_dirs) == 1
 
 

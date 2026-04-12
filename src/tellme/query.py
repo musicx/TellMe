@@ -58,7 +58,7 @@ def query_vault(
             ),
             encoding="utf-8",
         )
-        rel = _relative(runtime.data_root, staged_path)
+        rel = runtime.relativize_path(staged_path)
         state = ProjectState.load(runtime.state_dir)
         state.upsert_page(
             PageRecord(
@@ -86,10 +86,10 @@ def query_vault(
         )
 
     return QueryResult(
-        answer_path=_relative(runtime.data_root, artifact_path),
+        answer_path=runtime.relativize_path(artifact_path),
         matched_pages=[path for path, _score in matches],
-        host_task_path=_relative(runtime.data_root, task_path),
-        staged_path=_relative(runtime.data_root, staged_path) if staged_path else None,
+        host_task_path=runtime.relativize_path(task_path),
+        staged_path=runtime.relativize_path(staged_path) if staged_path else None,
     )
 
 
@@ -100,7 +100,7 @@ def _match_pages(runtime: ProjectRuntime, question: str) -> list[tuple[str, int]
         text = page.read_text(encoding="utf-8", errors="replace").lower()
         score = sum(text.count(term) for term in terms)
         if score > 0:
-            scored.append((_relative(runtime.data_root, page), score))
+            scored.append((runtime.relativize_path(page), score))
     return sorted(scored, key=lambda item: (-item[1], item[0]))[:10]
 
 
@@ -135,11 +135,6 @@ def _answer_markdown(
 def _slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-").lower()
     return slug[:80] or "query"
-
-
-def _relative(root: Path, path: Path) -> str:
-    return path.resolve().relative_to(root.resolve()).as_posix()
-
 
 def _staged_synthesis_markdown(
     answer: str,

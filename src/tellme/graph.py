@@ -75,7 +75,7 @@ def stage_graph_candidate(
             ),
             encoding="utf-8",
         )
-        rel = _relative(runtime.data_root, page_path)
+        rel = runtime.relativize_path(page_path)
         sources = _as_str_list(node["sources"])
         page_hash = hashlib.sha256(page_path.read_bytes()).hexdigest()
         state.upsert_page(
@@ -127,7 +127,7 @@ def stage_graph_candidate(
             _conflict_page(conflict=conflict, host=host, run_id=run_id),
             encoding="utf-8",
         )
-        rel = _relative(runtime.data_root, page_path)
+        rel = runtime.relativize_path(page_path)
         sources = _as_str_list(conflict["sources"])
         page_hash = hashlib.sha256(page_path.read_bytes()).hexdigest()
         state.upsert_page(
@@ -384,11 +384,6 @@ def _as_str_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
-
-
-def _relative(root: Path, path: Path) -> str:
-    return path.resolve().relative_to(root.resolve()).as_posix()
-
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()

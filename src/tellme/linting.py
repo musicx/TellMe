@@ -42,7 +42,7 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
         titles.update(_page_titles(page, frontmatter, body))
 
     for page, text, frontmatter, body in page_cache:
-        rel = _relative(runtime.data_root, page)
+        rel = runtime.relativize_path(page)
         if not frontmatter:
             issues.append(LintIssue("missing_frontmatter", rel, "Page has no frontmatter"))
         elif "sources" not in frontmatter:
@@ -56,7 +56,7 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
         state = ProjectState.load(runtime.state_dir)
         for payload in state.pages().values():
             record = PageRecord.from_dict(payload)
-            path = runtime.data_root / record.path
+            path = runtime.resolve_path(record.path)
             if not path.is_file():
                 continue
             current_hash = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -98,7 +98,7 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
         )
         for finding in state.health_findings().values():
             staged_path = str(finding.get("staged_path", ""))
-            if staged_path and not (runtime.data_root / staged_path).is_file():
+            if staged_path and not runtime.resolve_path(staged_path).is_file():
                 issues.append(
                     LintIssue(
                         "health_missing_staged_page",
@@ -127,20 +127,12 @@ def lint_vault(runtime: ProjectRuntime, current_run_id: str | None = None) -> Li
                 issues.append(
                     LintIssue(
                         "running_run",
-                        _relative(runtime.data_root, run_json),
+                        runtime.relativize_path(run_json),
                         "Run is still marked running; inspect diagnostics or rerun the workflow.",
                     )
                 )
 
     return LintResult(issues=issues)
-
-
-def _relative(root: Path, path: Path) -> str:
-    try:
-        return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return path.resolve().as_posix()
-
 
 def _page_titles(page: Path, frontmatter: dict, body: str) -> set[str]:
     titles = {page.stem}

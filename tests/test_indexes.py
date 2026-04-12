@@ -94,6 +94,39 @@ def test_generate_vault_indexes_handles_empty_state(tmp_path: Path) -> None:
     assert "No reader-facing themes yet." in root
 
 
+def test_generate_vault_indexes_lists_unpromoted_source_summaries(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    source_page = runtime.wiki_dir / "sources" / "anthropic.md"
+    source_page.parent.mkdir(parents=True, exist_ok=True)
+    source_page.write_text(
+        "---\npage_type: source_summary\nstatus: published\nsources:\n  - raw/anthropic.md\n---\n# Anthropic 官方博文：多智能体协作指南\n\nBody.\n",
+        encoding="utf-8",
+    )
+    state = ProjectState.load(runtime.state_dir)
+    state.upsert_page(
+        PageRecord(
+            path="wiki/sources/anthropic.md",
+            page_type="source_summary",
+            status=ContentStatus.PUBLISHED,
+            sha256="seed",
+            sources=["raw/anthropic.md"],
+            last_host="codex",
+            last_run_id="seed-run",
+            published_path="wiki/sources/anthropic.md",
+        )
+    )
+
+    generate_vault_indexes(runtime=runtime, run_id="index-run", host="codex")
+
+    root = (runtime.wiki_dir / "index.md").read_text(encoding="utf-8")
+    assert "## Source Backlog" in root
+    assert "Anthropic 官方博文：多智能体协作指南" in root
+    assert "wiki/sources/anthropic.md" not in root
+    assert "sources/anthropic.md" in root
+
+
 def test_generate_vault_indexes_removes_stale_reader_facing_pages(tmp_path: Path) -> None:
     project_root = tmp_path / "TellMe"
     init_project(project_root, machine="test-pc")

@@ -18,7 +18,7 @@ def reconcile_vault(runtime: ProjectRuntime, run_id: str, host: str) -> Reconcil
 
     for path, payload in state.pages().items():
         page = PageRecord.from_dict(payload)
-        file_path = runtime.data_root / page.path
+        file_path = runtime.resolve_path(page.path)
         if not file_path.is_file():
             continue
         current_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()

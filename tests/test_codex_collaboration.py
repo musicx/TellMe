@@ -26,7 +26,7 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
 
     result = create_codex_handoff(runtime=runtime, run_id=handoff_run.run_id)
 
-    task_markdown = (runtime.data_root / result.task_markdown_path).read_text(encoding="utf-8")
+    task_markdown = runtime.resolve_path(result.task_markdown_path).read_text(encoding="utf-8")
     assert result.task_json_path == f"runs/{handoff_run.run_id}/host-tasks/compile-codex.json"
     assert result.task_markdown_path == f"runs/{handoff_run.run_id}/host-tasks/compile-codex.md"
     assert result.result_template_path == f"runs/{handoff_run.run_id}/artifacts/codex-result.template.json"
@@ -40,7 +40,7 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
     assert "`theme` and `subtheme`" in task_markdown
     assert "`reader_role`" in task_markdown
 
-    template = json.loads((runtime.data_root / result.result_template_path).read_text(encoding="utf-8"))
+    template = json.loads(runtime.resolve_path(result.result_template_path).read_text(encoding="utf-8"))
     assert template["schema_version"] == 1
     assert template["host"] == "codex"
     assert template["run_id"] == handoff_run.run_id
@@ -70,7 +70,7 @@ def test_codex_handoff_includes_existing_graph_nodes(tmp_path: Path) -> None:
 
     result = create_codex_handoff(runtime=runtime, run_id=handoff_run.run_id)
 
-    task_markdown = (runtime.data_root / result.task_markdown_path).read_text(encoding="utf-8")
+    task_markdown = runtime.resolve_path(result.task_markdown_path).read_text(encoding="utf-8")
     assert "## Existing Graph Nodes" in task_markdown
     assert "`concept:existing-node`" in task_markdown
     assert "wiki/concepts/existing-node.md" in task_markdown
@@ -111,11 +111,11 @@ def test_codex_handoff_can_focus_on_health_finding_context(tmp_path: Path) -> No
         health_finding_id="health:thin-node-needs-enrichment",
     )
 
-    task_markdown = (runtime.data_root / result.task_markdown_path).read_text(encoding="utf-8")
+    task_markdown = runtime.resolve_path(result.task_markdown_path).read_text(encoding="utf-8")
     assert "## Health Finding Focus" in task_markdown
     assert "Thin Node needs more sourced claims." in task_markdown
     assert "suggested_next_action: enrich_node" in task_markdown
-    template = json.loads((runtime.data_root / result.result_template_path).read_text(encoding="utf-8"))
+    template = json.loads(runtime.resolve_path(result.result_template_path).read_text(encoding="utf-8"))
     assert template["source_references"] == ["raw/source.md"]
 
 

@@ -31,13 +31,13 @@ def publish_staged_graph(
     published_pages: list[str] = []
 
     for page in records:
-        source_path = runtime.data_root / page.path
+        source_path = runtime.resolve_path(page.path)
         if not source_path.is_file():
             raise PublishError(f"staged page not found: {page.path}")
         vault_rel = _published_path_for_page(state=state, page=page)
         page_hash: str | None = None
         if vault_rel is not None:
-            vault_path = runtime.data_root / vault_rel
+            vault_path = runtime.resolve_path(vault_rel)
             vault_path.parent.mkdir(parents=True, exist_ok=True)
             vault_path.write_text(
                 _publish_page_text(

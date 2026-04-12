@@ -65,9 +65,9 @@ def create_reader_rewrite_handoff(runtime: ProjectRuntime, run_id: str, host: st
         },
     )
     return ReaderRewriteHandoffResult(
-        task_json_path=_relative(runtime.data_root, task_json),
-        task_markdown_path=_relative(runtime.data_root, task_markdown),
-        result_template_path=_relative(runtime.data_root, result_template),
+        task_json_path=runtime.relativize_path(task_json),
+        task_markdown_path=runtime.relativize_path(task_markdown),
+        result_template_path=runtime.relativize_path(result_template),
     )
 
 
@@ -82,7 +82,7 @@ def consume_reader_rewrite_result(
     except ValueError as exc:
         raise ReaderRewriteError("reader rewrite result path must be under staging/") from exc
     if not resolved.is_file():
-        raise ReaderRewriteError(f"reader rewrite result file not found: {_relative(runtime.data_root, resolved)}")
+        raise ReaderRewriteError(f"reader rewrite result file not found: {runtime.relativize_path(resolved)}")
 
     payload = _load_result(resolved)
     state = ProjectState.load(runtime.state_dir)
@@ -92,10 +92,10 @@ def consume_reader_rewrite_result(
         target_path = str(rewrite["target_path"])
         page_type = str(rewrite["page_type"])
         sources = [str(source) for source in rewrite["sources"]]
-        target = runtime.data_root / target_path
+        target = runtime.resolve_path(target_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(str(rewrite["content"]), encoding="utf-8")
-        rel = _relative(runtime.data_root, target)
+        rel = runtime.relativize_path(target)
         state.upsert_page(
             PageRecord(
                 path=rel,
@@ -111,7 +111,7 @@ def consume_reader_rewrite_result(
         staged_pages.append(rel)
 
     return ReaderRewriteConsumeResult(
-        result_path=_relative(runtime.data_root, resolved),
+        result_path=runtime.relativize_path(resolved),
         staged_pages=staged_pages,
     )
 
@@ -236,10 +236,3 @@ Each rewrite entry must include:
 - `sources`
 - `content`
 """
-
-
-def _relative(root: Path, path: Path) -> str:
-    try:
-        return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return path.resolve().as_posix()

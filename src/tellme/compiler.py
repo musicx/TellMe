@@ -45,7 +45,7 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
     task_path = task.write(runtime.runs_dir / run_id / "host-tasks")
 
     for source in sources:
-        raw_path = runtime.data_root / (source.raw_path or source.path)
+        raw_path = runtime.resolve_path(source.raw_path or source.path)
         if not raw_path.is_file():
             continue
         base_dir = runtime.wiki_dir if direct_publish else runtime.staging_dir
@@ -60,7 +60,7 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
             status="published" if direct_publish else "staged",
         )
         page_path.write_text(content, encoding="utf-8")
-        page_rel = _relative(runtime.data_root, page_path)
+        page_rel = runtime.relativize_path(page_path)
         page_hash = hashlib.sha256(page_path.read_bytes()).hexdigest()
         state.upsert_page(
             PageRecord(
@@ -107,8 +107,8 @@ def compile_sources(runtime: ProjectRuntime, run_id: str, host: str) -> CompileR
     return CompileResult(
         published_pages=published_pages,
         staged_pages=staged_pages,
-        host_task_path=_relative(runtime.data_root, task_path),
-        artifact_path=_relative(runtime.data_root, artifact_path),
+        host_task_path=runtime.relativize_path(task_path),
+        artifact_path=runtime.relativize_path(artifact_path),
     )
 
 
@@ -144,11 +144,6 @@ def _source_summary_page(
 def _slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-").lower()
     return slug or "source"
-
-
-def _relative(root: Path, path: Path) -> str:
-    return path.resolve().relative_to(root.resolve()).as_posix()
-
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()

@@ -38,6 +38,7 @@ class HostSettings:
 class ProjectRuntime:
     project_root: Path
     data_root: Path
+    runtime_root: Path
     project: ProjectSettings
     machine: MachineSettings | None
     host: HostSettings | None
@@ -51,6 +52,47 @@ class ProjectRuntime:
     @property
     def vault_dir(self) -> Path:
         return self.wiki_dir
+
+    def resolve_path(self, value: str | Path) -> Path:
+        path = Path(value).expanduser()
+        if path.is_absolute():
+            return path.resolve()
+        normalized = str(path).replace("\\", "/")
+        if normalized == "raw" or normalized.startswith("raw/"):
+            suffix = normalized.removeprefix("raw").lstrip("/")
+            return (self.raw_dir / suffix).resolve()
+        if normalized == "wiki" or normalized.startswith("wiki/"):
+            suffix = normalized.removeprefix("wiki").lstrip("/")
+            return (self.wiki_dir / suffix).resolve()
+        if normalized == "staging" or normalized.startswith("staging/"):
+            suffix = normalized.removeprefix("staging").lstrip("/")
+            return (self.staging_dir / suffix).resolve()
+        if normalized == "state" or normalized.startswith("state/"):
+            suffix = normalized.removeprefix("state").lstrip("/")
+            return (self.state_dir / suffix).resolve()
+        if normalized == "runs" or normalized.startswith("runs/"):
+            suffix = normalized.removeprefix("runs").lstrip("/")
+            return (self.runs_dir / suffix).resolve()
+        return (self.project_root / path).resolve()
+
+    def relativize_path(self, path: Path) -> str:
+        resolved = path.resolve()
+        for prefix, root in (
+            ("raw", self.raw_dir),
+            ("wiki", self.wiki_dir),
+            ("staging", self.staging_dir),
+            ("state", self.state_dir),
+            ("runs", self.runs_dir),
+        ):
+            try:
+                rel = resolved.relative_to(root.resolve()).as_posix()
+                return prefix if not rel or rel == "." else f"{prefix}/{rel}"
+            except ValueError:
+                continue
+        try:
+            return resolved.relative_to(self.project_root.resolve()).as_posix()
+        except ValueError:
+            return resolved.as_posix()
 
 
 def load_runtime(
@@ -66,9 +108,10 @@ def load_runtime(
     policies = _load_policies(root)
 
     layout = dict(project_payload.get("layout", {}))
-    data_root = _machine_data_root(machine_settings) or _data_root(project_payload)
+    data_root = _content_root(project_payload, machine_settings)
+    runtime_root = _runtime_root(project_payload, root, machine_settings)
 
-    def path_for(key: str, default: str) -> Path:
+    def path_for(key: str, default: str, *, root_path: Path) -> Path:
         machine_key = f"{key}_root"
         if machine_settings and machine_key in machine_settings.paths:
             return machine_settings.paths[machine_key]
@@ -76,20 +119,21 @@ def load_runtime(
             for legacy_key in ("primary_wiki", "primary_vault"):
                 if legacy_key in machine_settings.paths:
                     return machine_settings.paths[legacy_key]
-        return (data_root / str(layout.get(f"{key}_dir", default))).resolve()
+        return (root_path / str(layout.get(f"{key}_dir", default))).resolve()
 
     return ProjectRuntime(
         project_root=root,
         data_root=data_root,
+        runtime_root=runtime_root,
         project=project,
         machine=machine_settings,
         host=host_settings,
         policies=policies,
-        raw_dir=path_for("raw", "raw"),
-        staging_dir=path_for("staging", "staging"),
-        state_dir=path_for("state", "state"),
-        runs_dir=path_for("runs", "runs"),
-        wiki_dir=path_for("wiki", "wiki"),
+        raw_dir=path_for("raw", "raw", root_path=data_root),
+        staging_dir=path_for("staging", "staging", root_path=runtime_root),
+        state_dir=path_for("state", "state", root_path=runtime_root),
+        runs_dir=path_for("runs", "runs", root_path=runtime_root),
+        wiki_dir=path_for("wiki", "wiki", root_path=data_root),
     )
 
 
@@ -107,7 +151,11 @@ def _project_settings(payload: dict[str, Any]) -> ProjectSettings:
     )
 
 
-def _data_root(payload: dict[str, Any]) -> Path:
+def _content_root(payload: dict[str, Any], machine_settings: MachineSettings | None) -> Path:
+    if machine_settings:
+        for key in ("raw_root", "wiki_root", "primary_wiki", "primary_vault", "vault_root"):
+            if key in machine_settings.paths:
+                return machine_settings.paths[key].parent.resolve()
     data = payload.get("data", {})
     env_var = str(data.get("root_env", "OBSIDIAN_VAULT_PATH"))
     env_value = os.environ.get(env_var, "").strip()
@@ -118,6 +166,28 @@ def _data_root(payload: dict[str, Any]) -> Path:
         return Path(configured).expanduser().resolve()
     fallback = str(data.get("fallback_root", "~/.obsidian/llm_wiki"))
     return Path(fallback).expanduser().resolve()
+
+
+def _runtime_root(
+    payload: dict[str, Any],
+    project_root: Path,
+    machine_settings: MachineSettings | None,
+) -> Path:
+    if machine_settings:
+        for key in ("state_root", "staging_root", "runs_root"):
+            if key in machine_settings.paths:
+                return machine_settings.paths[key].parent.resolve()
+    data = payload.get("data", {})
+    env_var = str(data.get("runtime_root_env", "TELLME_RUNTIME_ROOT"))
+    env_value = os.environ.get(env_var, "").strip()
+    if env_value:
+        return Path(env_value).expanduser().resolve()
+    configured = str(data.get("runtime_root", "")).strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    fallback_root = Path(str(data.get("runtime_fallback_root", "~/.tmp/tellme"))).expanduser().resolve()
+    slug = _path_slug(project_root.resolve())
+    return (fallback_root / slug).resolve()
 
 
 def _load_machine(root: Path, machine: str | None) -> MachineSettings | None:
@@ -135,24 +205,6 @@ def _load_machine(root: Path, machine: str | None) -> MachineSettings | None:
         platform=str(machine_payload.get("platform", "")),
         paths={key: Path(str(value)).expanduser().resolve() for key, value in paths_payload.items()},
     )
-
-
-def _machine_data_root(machine_settings: MachineSettings | None) -> Path | None:
-    if not machine_settings:
-        return None
-    for key in (
-        "raw_root",
-        "staging_root",
-        "state_root",
-        "runs_root",
-        "wiki_root",
-        "primary_wiki",
-        "vault_root",
-        "primary_vault",
-    ):
-        if key in machine_settings.paths:
-            return machine_settings.paths[key].parent.resolve()
-    return None
 
 
 def _load_host(root: Path, host: str | None) -> HostSettings | None:
@@ -185,3 +237,8 @@ def _load_policies(root: Path) -> dict[str, dict[str, Any]]:
         if isinstance(values, dict):
             policies.setdefault(section, {}).update(values)
     return policies
+
+
+def _path_slug(path: Path) -> str:
+    value = path.as_posix().strip("/")
+    return value.replace("/", "-") or "tellme"

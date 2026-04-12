@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import ProjectRuntime
+from .markdown import parse_frontmatter
 from .state import ContentStatus, PageRecord, ProjectState
 
 
@@ -22,7 +23,7 @@ def generate_vault_indexes(
     include_reader_facing: bool = True,
 ) -> IndexResult:
     state = ProjectState.load(runtime.state_dir)
-    pages = ([] if not include_reader_facing else _reader_facing_pages(state)) + [
+    pages = ([] if not include_reader_facing else _reader_facing_pages(runtime, state)) + [
         ("wiki/indexes/concepts.md", _node_index("Concepts", "concept", state.nodes())),
         ("wiki/indexes/entities.md", _node_index("Entities", "entity", state.nodes())),
         ("wiki/indexes/synthesis.md", _synthesis_index(state.syntheses())),
@@ -34,7 +35,7 @@ def generate_vault_indexes(
     written: list[str] = []
 
     for rel, body in pages:
-        path = runtime.data_root / rel
+        path = runtime.resolve_path(rel)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             _page_markdown(
@@ -74,7 +75,7 @@ def generate_vault_indexes(
     return IndexResult(index_pages=written)
 
 
-def _reader_facing_pages(state: ProjectState) -> list[tuple[str, str]]:
+def _reader_facing_pages(runtime: ProjectRuntime, state: ProjectState) -> list[tuple[str, str]]:
     published_nodes = [
         node
         for node in state.nodes().values()
@@ -82,8 +83,9 @@ def _reader_facing_pages(state: ProjectState) -> list[tuple[str, str]]:
     ]
     themes = _group_themes(published_nodes)
     references = _reference_nodes(published_nodes)
+    source_backlog = _source_backlog(runtime, state, published_nodes)
 
-    pages: list[tuple[str, str]] = [("wiki/index.md", _overview_page(themes, references))]
+    pages: list[tuple[str, str]] = [("wiki/index.md", _overview_page(themes, references, source_backlog))]
     for theme_name, theme in sorted(themes.items()):
         pages.append((f"wiki/{theme['path']}", _theme_page(theme_name, theme, state)))
         for subtheme_name, subtheme in sorted(theme["subthemes"].items()):
@@ -144,7 +146,7 @@ def _reference_nodes(published_nodes: list[dict]) -> list[dict]:
     return sorted(references, key=lambda item: item["title"].lower())
 
 
-def _overview_page(themes: dict[str, dict], references: list[dict]) -> str:
+def _overview_page(themes: dict[str, dict], references: list[dict], source_backlog: list[dict]) -> str:
     lines = [
         "## Summary",
         "",
@@ -173,6 +175,14 @@ def _overview_page(themes: dict[str, dict], references: list[dict]) -> str:
     else:
         for reference in references:
             lines.append(f"- [{reference['title']}]({reference['link']})")
+    lines.extend(["", "## Source Backlog", ""])
+    if not source_backlog:
+        lines.append("All published source summaries are already represented in promoted reader-facing pages.")
+    else:
+        for item in source_backlog:
+            lines.append(
+                f"- [{item['title']}]({item['link']}) — source summary available, not yet promoted into a reader-facing reference or theme."
+            )
     lines.extend(["", "## Thin Areas", ""])
     thin_areas = _thin_areas(themes)
     if not thin_areas:
@@ -478,7 +488,7 @@ def _cleanup_stale_reader_facing_pages(
             continue
         if rel_path in desired_paths:
             continue
-        file_path = runtime.data_root / rel_path
+        file_path = runtime.resolve_path(rel_path)
         if file_path.exists():
             file_path.unlink()
         state.delete_page(rel_path)
@@ -503,6 +513,38 @@ def _thin_areas(themes: dict[str, dict]) -> list[str]:
         if not theme["subthemes"]:
             areas.append(f"{theme_name} has no subthemes yet.")
     return areas
+
+
+def _source_backlog(runtime: ProjectRuntime, state: ProjectState, published_nodes: list[dict]) -> list[dict]:
+    represented_sources = {
+        source
+        for node in published_nodes
+        for source in node.get("sources", [])
+    }
+    backlog: list[dict] = []
+    for path, payload in sorted(state.pages().items()):
+        if payload.get("page_type") != "source_summary" or payload.get("status") != ContentStatus.PUBLISHED.value:
+            continue
+        page_sources = [str(source) for source in payload.get("sources", [])]
+        if any(source in represented_sources for source in page_sources):
+            continue
+        file_path = runtime.resolve_path(path)
+        backlog.append(
+            {
+                "title": _page_heading(file_path),
+                "link": _relative_link("wiki/index.md", path),
+            }
+        )
+    return backlog
+
+
+def _page_heading(path: Path) -> str:
+    try:
+        _frontmatter, body = parse_frontmatter(path.read_text(encoding="utf-8"))
+    except OSError:
+        return path.stem
+    match = re.search(r"^#\s+(.+?)\s*$", body, re.MULTILINE)
+    return match.group(1).strip() if match else path.stem
 
 
 def _theme_summary(theme_name: str, theme: dict) -> str:

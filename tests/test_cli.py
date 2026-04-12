@@ -11,6 +11,8 @@ def run_cli(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
     repo_root = Path(__file__).resolve().parents[1]
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_root / "src")
+    if env.get("OBSIDIAN_VAULT_PATH") and not env.get("TELLME_RUNTIME_ROOT"):
+        env["TELLME_RUNTIME_ROOT"] = str(Path(env["OBSIDIAN_VAULT_PATH"]).with_name(Path(env["OBSIDIAN_VAULT_PATH"]).name + "-runtime"))
     return subprocess.run(
         [sys.executable, "-m", "tellme", *args],
         cwd=cwd,
@@ -19,6 +21,10 @@ def run_cli(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
         text=True,
         capture_output=True,
     )
+
+
+def runtime_root_for(data_root: Path) -> Path:
+    return data_root.with_name(data_root.name + "-runtime")
 
 
 def test_cli_help_lists_mvp_commands(tmp_path: Path) -> None:
@@ -35,7 +41,9 @@ def test_init_creates_project_layout_and_machine_config(
 ) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = tmp_path / "tellme-runtime"
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    monkeypatch.setenv("TELLME_RUNTIME_ROOT", str(runtime_root))
 
     result = run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
 
@@ -49,14 +57,17 @@ def test_init_creates_project_layout_and_machine_config(
         "templates",
     ]:
         assert (project_root / directory).is_dir()
-    for directory in ["raw", "runs", "staging", "state", "wiki"]:
+    for directory in ["raw", "wiki"]:
         assert not (project_root / directory).exists()
         assert (data_root / directory).is_dir()
+    for directory in ["runs", "staging", "state"]:
+        assert not (project_root / directory).exists()
+        assert (runtime_root / directory).is_dir()
 
     assert (project_root / "config" / "project.toml").is_file()
     assert (project_root / "config" / "machines" / "test-pc.toml").is_file()
-    assert (data_root / "state" / "manifest.json").is_file()
-    assert (data_root / "runs" / ".gitkeep").is_file()
+    assert (runtime_root / "state" / "manifest.json").is_file()
+    assert (runtime_root / "runs" / ".gitkeep").is_file()
 
 
 def test_workflow_command_resolves_explicit_project(tmp_path: Path, monkeypatch) -> None:
@@ -103,6 +114,7 @@ def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path, monkeypatch)
 def test_cli_query_stage_writes_synthesis_candidate(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nAlpha content for TellMe.", encoding="utf-8")
@@ -114,7 +126,7 @@ def test_cli_query_stage_writes_synthesis_candidate(tmp_path: Path, monkeypatch)
 
     assert query_result.returncode == 0, query_result.stderr
     assert "tellme query: staged staging/synthesis/alpha.md" in query_result.stdout
-    assert (data_root / "staging" / "synthesis" / "alpha.md").is_file()
+    assert (runtime_root / "staging" / "synthesis" / "alpha.md").is_file()
 
 
 def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(
@@ -144,6 +156,7 @@ def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(
 def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nCodex handoff source.", encoding="utf-8")
@@ -155,12 +168,12 @@ def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path, monkeypatc
     assert handoff.returncode == 0, handoff.stderr
     assert "tellme compile: codex task" in handoff.stdout
     task_line = next(line for line in handoff.stdout.splitlines() if line.endswith("compile-codex.md"))
-    assert (data_root / task_line).is_file()
+    assert (runtime_root / task_line).is_file()
 
-    staged = data_root / "staging" / "codex" / "draft.md"
+    staged = runtime_root / "staging" / "codex" / "draft.md"
     staged.parent.mkdir(parents=True)
     staged.write_text("---\npage_type: synthesis\nsources:\n  - raw/source.md\n---\n# Draft", encoding="utf-8")
-    result_path = data_root / "runs" / "codex-result.json"
+    result_path = runtime_root / "runs" / "codex-result.json"
     result_path.write_text(
         json.dumps(
             {
@@ -193,6 +206,7 @@ def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path, monkeypatc
 def test_cli_compile_consumes_codex_graph_candidate(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nCodex graph candidate source.", encoding="utf-8")
@@ -202,7 +216,7 @@ def test_cli_compile_consumes_codex_graph_candidate(tmp_path: Path, monkeypatch)
     handoff = run_cli("--project", str(project_root), "--host", "codex", "compile", "--handoff", cwd=tmp_path)
 
     assert handoff.returncode == 0, handoff.stderr
-    candidate = data_root / "staging" / "graph" / "candidates" / "candidate.json"
+    candidate = runtime_root / "staging" / "graph" / "candidates" / "candidate.json"
     candidate.parent.mkdir(parents=True)
     candidate.write_text(
         json.dumps(
@@ -226,7 +240,7 @@ def test_cli_compile_consumes_codex_graph_candidate(tmp_path: Path, monkeypatch)
         ),
         encoding="utf-8",
     )
-    result_path = data_root / "runs" / "codex-graph-result.json"
+    result_path = runtime_root / "runs" / "codex-graph-result.json"
     result_path.write_text(
         json.dumps(
             {
@@ -254,18 +268,19 @@ def test_cli_compile_consumes_codex_graph_candidate(tmp_path: Path, monkeypatch)
 
     assert consumed.returncode == 0, consumed.stderr
     assert "tellme compile: consumed codex result staging/concepts/codex-graph-candidate.md" in consumed.stdout
-    assert (data_root / "staging" / "concepts" / "codex-graph-candidate.md").is_file()
+    assert (runtime_root / "staging" / "concepts" / "codex-graph-candidate.md").is_file()
 
 
 def test_cli_publish_all_publishes_staged_graph_nodes(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nCodex graph candidate source.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
     run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
-    candidate = data_root / "staging" / "graph" / "candidates" / "candidate.json"
+    candidate = runtime_root / "staging" / "graph" / "candidates" / "candidate.json"
     candidate.parent.mkdir(parents=True)
     candidate.write_text(
         json.dumps(
@@ -289,7 +304,7 @@ def test_cli_publish_all_publishes_staged_graph_nodes(tmp_path: Path, monkeypatc
         ),
         encoding="utf-8",
     )
-    result_path = data_root / "runs" / "codex-graph-result.json"
+    result_path = runtime_root / "runs" / "codex-graph-result.json"
     result_path.write_text(
         json.dumps(
             {
@@ -325,12 +340,13 @@ def test_cli_publish_all_publishes_staged_graph_nodes(tmp_path: Path, monkeypatc
 def test_cli_lint_consumes_health_result_and_stages_review_page(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nThin node evidence.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
     run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
-    manifest_path = data_root / "state" / "manifest.json"
+    manifest_path = runtime_root / "state" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["nodes"]["concept:thin-node"] = {
         "id": "concept:thin-node",
@@ -341,7 +357,7 @@ def test_cli_lint_consumes_health_result_and_stages_review_page(tmp_path: Path, 
         "published_path": "wiki/concepts/thin-node.md"
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    result_path = data_root / "staging" / "health" / "health-run.json"
+    result_path = runtime_root / "staging" / "health" / "health-run.json"
     result_path.parent.mkdir(parents=True)
     result_path.write_text(
         json.dumps(
@@ -380,7 +396,7 @@ def test_cli_lint_consumes_health_result_and_stages_review_page(tmp_path: Path, 
 
     assert consumed.returncode == 0, consumed.stderr
     assert "tellme lint: consumed health result staging/health/health-run.json" in consumed.stdout
-    assert (data_root / "staging" / "health" / "health-thin-node-needs-enrichment.md").is_file()
+    assert (runtime_root / "staging" / "health" / "health-thin-node-needs-enrichment.md").is_file()
 
 
 def test_cli_publish_all_publishes_staged_query_synthesis(tmp_path: Path, monkeypatch) -> None:
@@ -405,6 +421,7 @@ def test_cli_publish_all_publishes_staged_query_synthesis(tmp_path: Path, monkey
 def test_cli_publish_reader_rewrite_handoff_and_consume(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
 
@@ -413,9 +430,9 @@ def test_cli_publish_reader_rewrite_handoff_and_consume(tmp_path: Path, monkeypa
     assert handoff.returncode == 0, handoff.stderr
     assert "tellme publish: reader rewrite task" in handoff.stdout
     task_line = next(line for line in handoff.stdout.splitlines() if line.endswith("reader-rewrite-codex.md"))
-    assert (data_root / task_line).is_file()
+    assert (runtime_root / task_line).is_file()
 
-    rewrite_result = data_root / "staging" / "reader-rewrite" / "rewrite.json"
+    rewrite_result = runtime_root / "staging" / "reader-rewrite" / "rewrite.json"
     rewrite_result.parent.mkdir(parents=True)
     rewrite_result.write_text(
         json.dumps(
@@ -455,6 +472,7 @@ def test_cli_publish_reader_rewrite_handoff_and_consume(tmp_path: Path, monkeypa
 def test_cli_lint_health_handoff_writes_host_task(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
 
@@ -463,18 +481,19 @@ def test_cli_lint_health_handoff_writes_host_task(tmp_path: Path, monkeypatch) -
     assert result.returncode == 0, result.stderr
     assert "tellme lint: health task" in result.stdout
     task_line = next(line for line in result.stdout.splitlines() if line.endswith("health-codex.md"))
-    assert (data_root / task_line).is_file()
+    assert (runtime_root / task_line).is_file()
 
 
 def test_cli_compile_handoff_can_focus_on_health_finding(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nThin node evidence.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
     run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
-    health_result = data_root / "staging" / "health" / "health-run.json"
+    health_result = runtime_root / "staging" / "health" / "health-run.json"
     health_result.parent.mkdir(parents=True)
     health_result.write_text(
         json.dumps(
@@ -524,7 +543,7 @@ def test_cli_compile_handoff_can_focus_on_health_finding(tmp_path: Path, monkeyp
 
     assert result.returncode == 0, result.stderr
     task_line = next(line for line in result.stdout.splitlines() if line.endswith("compile-codex.md"))
-    task_markdown = (data_root / task_line).read_text(encoding="utf-8")
+    task_markdown = (runtime_root / task_line).read_text(encoding="utf-8")
     assert "## Health Finding Focus" in task_markdown
     assert "Thin Node needs more sourced claims." in task_markdown
 
@@ -532,12 +551,13 @@ def test_cli_compile_handoff_can_focus_on_health_finding(tmp_path: Path, monkeyp
 def test_cli_lint_can_resolve_health_finding(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nThin node evidence.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
     run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
-    health_result = data_root / "staging" / "health" / "health-run.json"
+    health_result = runtime_root / "staging" / "health" / "health-run.json"
     health_result.parent.mkdir(parents=True)
     health_result.write_text(
         json.dumps(
@@ -601,6 +621,7 @@ def test_cli_compile_handoff_requires_codex_host(tmp_path: Path) -> None:
 def test_cli_refresh_reader_prepare_writes_graph_handoff(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nReader refresh source.", encoding="utf-8")
@@ -618,6 +639,7 @@ def test_cli_refresh_reader_prepare_writes_graph_handoff(tmp_path: Path, monkeyp
 def test_cli_refresh_reader_consumes_graph_result_and_generates_rewrite_handoff(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     source = tmp_path / "source.md"
     source.write_text("# Source\n\nReader refresh source.", encoding="utf-8")
@@ -625,7 +647,7 @@ def test_cli_refresh_reader_consumes_graph_result_and_generates_rewrite_handoff(
     run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
     run_cli("--project", str(project_root), "--host", "codex", "refresh-reader", cwd=tmp_path)
 
-    candidate = data_root / "staging" / "graph" / "candidates" / "candidate.json"
+    candidate = runtime_root / "staging" / "graph" / "candidates" / "candidate.json"
     candidate.parent.mkdir(parents=True)
     candidate.write_text(
         json.dumps(
@@ -652,7 +674,7 @@ def test_cli_refresh_reader_consumes_graph_result_and_generates_rewrite_handoff(
         ),
         encoding="utf-8",
     )
-    result_path = data_root / "runs" / "codex-refresh-result.json"
+    result_path = runtime_root / "runs" / "codex-refresh-result.json"
     result_path.write_text(
         json.dumps(
             {
@@ -689,10 +711,11 @@ def test_cli_refresh_reader_consumes_graph_result_and_generates_rewrite_handoff(
 def test_cli_refresh_reader_consumes_rewrite_result_and_runs_lint(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
+    runtime_root = runtime_root_for(data_root)
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
 
-    rewrite_result = data_root / "staging" / "reader-rewrite" / "rewrite.json"
+    rewrite_result = runtime_root / "staging" / "reader-rewrite" / "rewrite.json"
     rewrite_result.parent.mkdir(parents=True)
     rewrite_result.write_text(
         json.dumps(

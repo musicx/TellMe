@@ -21,7 +21,9 @@ def test_resolve_project_root_from_nested_directory(tmp_path: Path) -> None:
 def test_load_runtime_uses_machine_path_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "data-root"
+    runtime_root = tmp_path / "runtime-root"
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    monkeypatch.setenv("TELLME_RUNTIME_ROOT", str(runtime_root))
     init_project(project_root, machine="test-pc")
 
     runtime = load_runtime(project_root=project_root, machine="test-pc")
@@ -30,6 +32,9 @@ def test_load_runtime_uses_machine_path_overrides(tmp_path: Path, monkeypatch: p
     assert runtime.data_root == data_root.resolve()
     assert runtime.raw_dir == data_root.resolve() / "raw"
     assert runtime.wiki_dir == data_root.resolve() / "wiki"
+    assert runtime.staging_dir == runtime_root.resolve() / "staging"
+    assert runtime.state_dir == runtime_root.resolve() / "state"
+    assert runtime.runs_dir == runtime_root.resolve() / "runs"
     assert runtime.project.name == "TellMe"
     assert runtime.machine is not None
     assert runtime.machine.name == "test-pc"
@@ -69,17 +74,19 @@ def test_load_runtime_uses_env_data_root_without_machine_override(
 ) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "external-data"
+    runtime_root = tmp_path / "runtime-root"
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    monkeypatch.setenv("TELLME_RUNTIME_ROOT", str(runtime_root))
     init_project(project_root, machine="test-pc")
 
     runtime = load_runtime(project_root=project_root)
 
     assert runtime.data_root == data_root.resolve()
     assert runtime.raw_dir == data_root.resolve() / "raw"
-    assert runtime.runs_dir == data_root.resolve() / "runs"
-    assert runtime.state_dir == data_root.resolve() / "state"
-    assert runtime.staging_dir == data_root.resolve() / "staging"
     assert runtime.wiki_dir == data_root.resolve() / "wiki"
+    assert runtime.runs_dir == runtime_root.resolve() / "runs"
+    assert runtime.state_dir == runtime_root.resolve() / "state"
+    assert runtime.staging_dir == runtime_root.resolve() / "staging"
 
 
 def test_load_runtime_falls_back_to_home_obsidian_data_root(

@@ -96,9 +96,9 @@ def create_codex_handoff(
     )
 
     return CodexHandoffResult(
-        task_json_path=_relative(runtime.data_root, task_json),
-        task_markdown_path=_relative(runtime.data_root, task_markdown),
-        result_template_path=_relative(runtime.data_root, result_template),
+        task_json_path=runtime.relativize_path(task_json),
+        task_markdown_path=runtime.relativize_path(task_markdown),
+        result_template_path=runtime.relativize_path(result_template),
         source_references=source_references,
     )
 
@@ -118,7 +118,7 @@ def consume_codex_result(
     if result.status != "succeeded":
         raise CodexResultError(f"codex result status is not succeeded: {result.status}")
 
-    output_path = (runtime.data_root / result.output_path).resolve()
+    output_path = runtime.resolve_path(result.output_path)
     try:
         output_path.relative_to(runtime.staging_dir.resolve())
     except ValueError as exc:
@@ -137,14 +137,14 @@ def consume_codex_result(
             )
         except GraphCandidateError as exc:
             raise CodexResultError(str(exc)) from exc
-        staged_page = graph_result.staged_pages[0] if graph_result.staged_pages else _relative(runtime.data_root, output_path)
+        staged_page = graph_result.staged_pages[0] if graph_result.staged_pages else runtime.relativize_path(output_path)
         return CodexConsumeResult(
             staged_page=staged_page,
             staged_pages=graph_result.staged_pages,
             source_references=result.source_references,
         )
 
-    rel = _relative(runtime.data_root, output_path)
+    rel = runtime.relativize_path(output_path)
     frontmatter, _body = parse_frontmatter(output_path.read_text(encoding="utf-8"))
     page_type = str(frontmatter.get("page_type", "codex_candidate")) if frontmatter else "codex_candidate"
     state = ProjectState.load(runtime.state_dir)
@@ -280,10 +280,3 @@ def _health_finding_markdown(health_finding: dict | None) -> str:
         "### Affected IDs\n\n"
         f"{affected_ids}\n"
     )
-
-
-def _relative(root: Path, path: Path) -> str:
-    try:
-        return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return path.resolve().as_posix()

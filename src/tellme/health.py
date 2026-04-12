@@ -65,9 +65,9 @@ def create_health_handoff(runtime: ProjectRuntime, run_id: str, host: str) -> He
         },
     )
     return HealthHandoffResult(
-        task_json_path=_relative(runtime.data_root, task_json),
-        task_markdown_path=_relative(runtime.data_root, task_markdown),
-        result_template_path=_relative(runtime.data_root, result_template),
+        task_json_path=runtime.relativize_path(task_json),
+        task_markdown_path=runtime.relativize_path(task_markdown),
+        result_template_path=runtime.relativize_path(result_template),
     )
 
 
@@ -82,10 +82,10 @@ def consume_health_result(
     except ValueError as exc:
         raise HealthResultError("health result path must be under staging/") from exc
     if not resolved_path.is_file():
-        raise HealthResultError(f"health result file not found: {_relative(runtime.data_root, resolved_path)}")
+        raise HealthResultError(f"health result file not found: {runtime.relativize_path(resolved_path)}")
 
     payload = _load_health_result(resolved_path)
-    rel_result_path = _relative(runtime.data_root, resolved_path)
+    rel_result_path = runtime.relativize_path(resolved_path)
     if not rel_result_path.startswith("staging/health/"):
         raise HealthResultError("health result path must be under staging/health/")
     if str(payload["output_path"]) != rel_result_path:
@@ -117,7 +117,7 @@ def consume_health_result(
             ),
             encoding="utf-8",
         )
-        rel_page_path = _relative(runtime.data_root, page_path)
+        rel_page_path = runtime.relativize_path(page_path)
         state.upsert_page(
             PageRecord(
                 path=rel_page_path,
@@ -175,7 +175,7 @@ def resolve_health_finding(
 
     staged_path = str(finding.get("staged_path", ""))
     if staged_path:
-        page_path = runtime.data_root / staged_path
+        page_path = runtime.resolve_path(staged_path)
         if page_path.is_file():
             page_path.write_text(
                 _replace_frontmatter_scalar(
@@ -415,14 +415,6 @@ def _bullet_list(items: list[str], empty: str) -> str:
     if not items:
         return f"- {empty}"
     return "\n".join(f"- `{item}`" for item in items)
-
-
-def _relative(root, path) -> str:
-    try:
-        return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return path.resolve().as_posix()
-
 
 def _slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-").lower()

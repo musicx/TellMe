@@ -29,13 +29,13 @@ def test_query_reads_vault_first_and_writes_run_artifact(tmp_path: Path) -> None
     )
 
     assert result.answer_path == f"runs/{run.run_id}/artifacts/query-answer.md"
-    answer = (runtime.data_root / result.answer_path).read_text(encoding="utf-8")
+    answer = runtime.resolve_path(result.answer_path).read_text(encoding="utf-8")
     assert "What says alpha?" in answer
     assert "wiki/alpha.md" in answer
     assert result.matched_pages == ["wiki/alpha.md"]
     assert result.staged_path is None
     assert result.host_task_path == f"runs/{run.run_id}/host-tasks/query-codex.json"
-    assert (runtime.data_root / result.host_task_path).is_file()
+    assert runtime.resolve_path(result.host_task_path).is_file()
 
 
 def test_query_stage_writes_synthesis_candidate_without_publishing(tmp_path: Path) -> None:
@@ -57,7 +57,7 @@ def test_query_stage_writes_synthesis_candidate_without_publishing(tmp_path: Pat
     )
 
     assert result.staged_path == "staging/synthesis/beta-reusable.md"
-    staged = (runtime.data_root / result.staged_path).read_text(encoding="utf-8")
+    staged = runtime.resolve_path(result.staged_path).read_text(encoding="utf-8")
     assert "page_type: synthesis" in staged
     assert "status: staged" in staged
     assert "question: beta reusable" in staged
