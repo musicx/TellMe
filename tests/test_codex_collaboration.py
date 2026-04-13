@@ -39,6 +39,8 @@ def test_codex_handoff_writes_markdown_task_and_result_template(tmp_path: Path) 
     assert "Do not try to write the final reader-facing article" in task_markdown
     assert "`theme` and `subtheme`" in task_markdown
     assert "`reader_role`" in task_markdown
+    assert "`promotion_recommendation`" in task_markdown
+    assert "`promotion_reason`" in task_markdown
 
     template = json.loads(runtime.resolve_path(result.result_template_path).read_text(encoding="utf-8"))
     assert template["schema_version"] == 1

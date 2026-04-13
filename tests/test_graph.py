@@ -274,6 +274,10 @@ def test_consume_graph_candidate_preserves_reader_facing_organization_metadata(t
                         "theme": "Architecture",
                         "subtheme": "Control Plane",
                         "reader_role": "embedded",
+                        "promotion_recommendation": "embedded",
+                        "promotion_reason": "Useful inside a larger chapter, but too narrow for a standalone reader-facing page.",
+                        "standalone_value": "medium",
+                        "theme_fit": "high",
                     }
                 ],
                 "claims": [],
@@ -304,6 +308,62 @@ def test_consume_graph_candidate_preserves_reader_facing_organization_metadata(t
     assert node["theme"] == "Architecture"
     assert node["subtheme"] == "Control Plane"
     assert node["reader_role"] == "embedded"
+    assert node["promotion_recommendation"] == "embedded"
+    assert node["promotion_reason"].startswith("Useful inside a larger chapter")
+    assert node["standalone_value"] == "medium"
+    assert node["theme_fit"] == "high"
+
+
+def test_consume_graph_candidate_rejects_invalid_promotion_recommendation(tmp_path: Path) -> None:
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nPromotion validation.", encoding="utf-8")
+    ingest_run = RunStore(runtime.runs_dir).start("ingest", "codex")
+    ingest_file(runtime, source, ingest_run.run_id)
+    candidate_path = runtime.staging_dir / "graph" / "candidates" / "candidate.json"
+    candidate_path.parent.mkdir(parents=True)
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "knowledge_graph_update",
+                "source_references": ["raw/source.md"],
+                "nodes": [
+                    {
+                        "id": "concept:bad-promotion",
+                        "kind": "concept",
+                        "title": "Bad Promotion",
+                        "summary": "Invalid promotion metadata.",
+                        "sources": ["raw/source.md"],
+                        "promotion_recommendation": "unknown",
+                    }
+                ],
+                "claims": [],
+                "relations": [],
+                "conflicts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result_path = runtime.runs_dir / "codex-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "succeeded",
+                "host": "codex",
+                "run_id": "handoff-run",
+                "output_path": "staging/graph/candidates/candidate.json",
+                "source_references": ["raw/source.md"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CodexResultError, match="promotion_recommendation"):
+        consume_codex_result(runtime=runtime, result_path=result_path, consume_run_id="consume-run")
 
 
 def test_consume_graph_candidate_stages_conflict_page(tmp_path: Path) -> None:

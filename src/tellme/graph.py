@@ -205,6 +205,20 @@ def _validate_candidate(
         reader_role = node.get("reader_role")
         if reader_role is not None and reader_role not in {"reference", "embedded"}:
             raise GraphCandidateError("node reader_role must be reference or embedded")
+        promotion_recommendation = node.get("promotion_recommendation")
+        if promotion_recommendation is not None and promotion_recommendation not in {
+            "reference",
+            "embedded",
+            "hold",
+            "theme_candidate",
+        }:
+            raise GraphCandidateError("node promotion_recommendation must be reference, embedded, hold, or theme_candidate")
+        standalone_value = node.get("standalone_value")
+        if standalone_value is not None and standalone_value not in {"low", "medium", "high"}:
+            raise GraphCandidateError("node standalone_value must be low, medium, or high")
+        theme_fit = node.get("theme_fit")
+        if theme_fit is not None and theme_fit not in {"low", "medium", "high"}:
+            raise GraphCandidateError("node theme_fit must be low, medium, or high")
         _require_sources(node, "sources", f"node {node['id']}", source_references)
         node_ids.add(str(node["id"]))
 
@@ -272,6 +286,26 @@ def _node_page(
         if str(node.get("reader_role", "")).strip()
         else ""
     )
+    promotion_recommendation_line = (
+        f"promotion_recommendation: {node['promotion_recommendation']}\n"
+        if str(node.get("promotion_recommendation", "")).strip()
+        else ""
+    )
+    promotion_reason_line = (
+        f"promotion_reason: {json.dumps(str(node['promotion_reason']), ensure_ascii=False)}\n"
+        if str(node.get("promotion_reason", "")).strip()
+        else ""
+    )
+    standalone_value_line = (
+        f"standalone_value: {node['standalone_value']}\n"
+        if str(node.get("standalone_value", "")).strip()
+        else ""
+    )
+    theme_fit_line = (
+        f"theme_fit: {node['theme_fit']}\n"
+        if str(node.get("theme_fit", "")).strip()
+        else ""
+    )
     previous_path_line = (
         f"previous_published_path: {previous_published_path}\n"
         if previous_published_path
@@ -295,6 +329,10 @@ def _node_page(
         f"{theme_line}"
         f"{subtheme_line}"
         f"{reader_role_line}"
+        f"{promotion_recommendation_line}"
+        f"{promotion_reason_line}"
+        f"{standalone_value_line}"
+        f"{theme_fit_line}"
         f"{previous_path_line}"
         "sources:\n"
         f"{source_lines}\n"

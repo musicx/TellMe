@@ -241,6 +241,13 @@ For each node:
 - Choose optional `reader_role` deliberately:
   - `reference` for stable pages that should stand alone in the published wiki
   - `embedded` for supporting ideas that should mainly strengthen theme or subtheme pages
+- Include optional `promotion_recommendation` when you can justify publication intent:
+  - `reference` when the node is worth a standalone reader-facing page
+  - `embedded` when it mainly belongs inside a larger theme page
+  - `theme_candidate` when the idea points toward a broader chapter-like organization need
+  - `hold` when the evidence is real but promotion should wait for more corpus support
+- Include optional `promotion_reason` to explain the recommendation in one sentence.
+- Include optional `standalone_value` and `theme_fit` using `low`, `medium`, or `high`.
 - Prefer fewer, stronger nodes over many thin, overlapping nodes.
 """
 
