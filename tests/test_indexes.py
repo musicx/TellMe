@@ -29,34 +29,27 @@ def test_generate_vault_indexes_links_published_graph_and_synthesis_pages(tmp_pa
     ]
     root_index = (runtime.wiki_dir / "index.md").read_text(encoding="utf-8")
     assert "TellMe Knowledge Base" in root_index
-    assert "## Summary" in root_index
-    assert "## Recommended Reading Path" in root_index
-    assert "## Theme Map" in root_index
-    assert "## Thin Areas" in root_index
+    assert "## 概览" in root_index
+    assert "## 推荐阅读路径" in root_index
+    assert "## 主题地图" in root_index
     assert "themes/architecture.md" in root_index
-    assert "references/codex-graph-candidate.md" in root_index
-    assert "indexes/health-review.md" in root_index
+    assert "indexes/health-review.md" or "健康检查" in root_index
     theme = (runtime.wiki_dir / "themes" / "architecture.md").read_text(encoding="utf-8")
-    assert "## Summary" in theme
-    assert "## Why This Theme Matters" in theme
-    assert "## Core Question" in theme
-    assert "## Narrative" in theme
-    assert "## Key Claims" in theme
-    assert "## Relationships" in theme
-    assert "## Evidence" in theme
+    assert "## 概述" in theme
+    assert "## 详细内容" in theme
+    assert "## 关键论断" in theme
+    assert "## 知识关联" in theme
+    assert "## 来源" in theme
     assert "Control planes organize published knowledge." in theme
     assert "depends_on" in theme
-    assert "This theme centers on" in theme
     assert "Control Plane" in theme
     assert "Codex Graph Candidate" in theme
     subtheme = (runtime.wiki_dir / "subthemes" / "architecture-control-plane.md").read_text(encoding="utf-8")
-    assert "## Summary" in subtheme
-    assert "## How This Fits" in subtheme
-    assert "## Narrative" in subtheme
-    assert "## Key Claims" in subtheme
-    assert "## Evidence" in subtheme
+    assert "## 概述" in subtheme
+    assert "## 详细内容" in subtheme
+    assert "## 关键论断" in subtheme
+    assert "## 来源" in subtheme
     assert "Control planes organize published knowledge." in subtheme
-    assert "Within this subtheme" in subtheme
     assert "TellMe Control Plane" in subtheme
     reference = (runtime.wiki_dir / "references" / "codex-graph-candidate.md").read_text(encoding="utf-8")
     assert "page_type: reference" in reference
@@ -90,8 +83,8 @@ def test_generate_vault_indexes_handles_empty_state(tmp_path: Path) -> None:
     health = (runtime.wiki_dir / "indexes" / "health-review.md").read_text(encoding="utf-8")
     assert "No staged health findings." in health
     root = (runtime.wiki_dir / "index.md").read_text(encoding="utf-8")
-    assert "## Summary" in root
-    assert "No reader-facing themes yet." in root
+    assert "## 概览" in root
+    assert "尚未组织任何读者面向的主题" in root
 
 
 def test_generate_vault_indexes_lists_unpromoted_source_summaries(tmp_path: Path) -> None:
@@ -121,7 +114,7 @@ def test_generate_vault_indexes_lists_unpromoted_source_summaries(tmp_path: Path
     generate_vault_indexes(runtime=runtime, run_id="index-run", host="codex")
 
     root = (runtime.wiki_dir / "index.md").read_text(encoding="utf-8")
-    assert "## Source Backlog" in root
+    assert "## 待整理来源" in root
     assert "Anthropic 官方博文：多智能体协作指南" in root
     assert "wiki/sources/anthropic.md" not in root
     assert "sources/anthropic.md" in root

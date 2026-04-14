@@ -1,0 +1,12 @@
+[machine]
+name = "Erics-MacBook-Pro.local"
+platform = "macos"
+
+[paths]
+project_root = "/Users/ericliu/Code/projects/TellMe"
+primary_wiki = "/Users/ericliu/Documents/obsidian_vault/llm_wiki/wiki"
+wiki_root = "/Users/ericliu/Documents/obsidian_vault/llm_wiki/wiki"
+raw_root = "/Users/ericliu/Documents/obsidian_vault/llm_wiki/raw"
+staging_root = "/Users/ericliu/.tmp/tellme/Users-ericliu-Code-projects-TellMe/staging"
+state_root = "/Users/ericliu/.tmp/tellme/Users-ericliu-Code-projects-TellMe/state"
+runs_root = "/Users/ericliu/.tmp/tellme/Users-ericliu-Code-projects-TellMe/runs"

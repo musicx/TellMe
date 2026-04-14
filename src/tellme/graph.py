@@ -16,6 +16,25 @@ class GraphCandidateError(RuntimeError):
     """Raised when a graph candidate cannot be safely staged."""
 
 
+CONFIDENCE_LABELS = {"extracted", "inferred", "ambiguous"}
+UPDATE_ACTIONS = {"create_new", "enrich_existing", "uncertain"}
+
+
+def normalize_node_id(kind: str, title: str) -> str:
+    """Generate a deterministic node id from kind + title.
+
+    Intended to reduce the chance that two extractions of the same concept
+    produce different ids. Preserves CJK characters so Chinese titles remain
+    readable; only ASCII punctuation and whitespace collapse to ``-``.
+    """
+
+    kind_slug = re.sub(r"[^A-Za-z0-9]+", "", str(kind).strip().lower()) or "node"
+    raw = str(title).strip()
+    slug = re.sub(r"[\s\-_/,.;:!?'\"`()\[\]{}<>]+", "-", raw)
+    slug = re.sub(r"-+", "-", slug).strip("-").lower()
+    return f"{kind_slug}:{slug}" if slug else kind_slug
+
+
 @dataclass(frozen=True)
 class GraphStageResult:
     staged_pages: list[str]
@@ -53,7 +72,13 @@ def stage_graph_candidate(
         node_id = str(node["id"])
         kind = str(node["kind"])
         existing_node = existing_nodes.get(node_id)
-        update_action = "enrich_existing" if existing_node and existing_node.get("published_path") else "create_new"
+        hint = node.get("update_action_hint")
+        if hint == "uncertain":
+            update_action = "uncertain"
+        else:
+            update_action = (
+                "enrich_existing" if existing_node and existing_node.get("published_path") else "create_new"
+            )
         previous_published_path = (
             str(existing_node["published_path"])
             if existing_node and existing_node.get("published_path")
@@ -219,6 +244,18 @@ def _validate_candidate(
         theme_fit = node.get("theme_fit")
         if theme_fit is not None and theme_fit not in {"low", "medium", "high"}:
             raise GraphCandidateError("node theme_fit must be low, medium, or high")
+        content = node.get("content")
+        if content is not None and not isinstance(content, str):
+            raise GraphCandidateError("node content must be a string")
+        key_points = node.get("key_points")
+        if key_points is not None:
+            if not isinstance(key_points, list) or not all(isinstance(p, str) for p in key_points):
+                raise GraphCandidateError("node key_points must be a list of strings")
+        update_action_hint = node.get("update_action_hint")
+        if update_action_hint is not None and update_action_hint not in UPDATE_ACTIONS:
+            raise GraphCandidateError(
+                "node update_action_hint must be one of: " + ", ".join(sorted(UPDATE_ACTIONS))
+            )
         _require_sources(node, "sources", f"node {node['id']}", source_references)
         node_ids.add(str(node["id"]))
 
@@ -230,6 +267,7 @@ def _validate_candidate(
                 raise GraphCandidateError(f"claim missing {field}")
         if str(claim["subject"]) not in node_ids:
             raise GraphCandidateError(f"claim subject does not match candidate node: {claim['subject']}")
+        _validate_confidence(claim, f"claim {claim['id']}")
         _require_sources(claim, "sources", f"claim {claim['id']}", source_references)
 
     for relation in candidate["relations"]:
@@ -240,6 +278,7 @@ def _validate_candidate(
                 raise GraphCandidateError(f"relation missing {field}")
         if str(relation["source"]) not in node_ids:
             raise GraphCandidateError(f"relation source does not match candidate node: {relation['source']}")
+        _validate_confidence(relation, f"relation {_relation_id(relation)}")
         _require_sources(relation, "sources", f"relation {_relation_id(relation)}", source_references)
 
     for conflict in candidate["conflicts"]:
@@ -249,6 +288,20 @@ def _validate_candidate(
             if not str(conflict.get(field, "")).strip():
                 raise GraphCandidateError(f"conflict missing {field}")
         _require_sources(conflict, "sources", f"conflict {conflict['id']}", source_references)
+
+
+def _validate_confidence(payload: dict[str, Any], label: str) -> None:
+    confidence = payload.get("confidence")
+    if confidence is not None and confidence not in CONFIDENCE_LABELS:
+        raise GraphCandidateError(
+            f"{label} confidence must be one of: " + ", ".join(sorted(CONFIDENCE_LABELS))
+        )
+    score = payload.get("confidence_score")
+    if score is not None:
+        if not isinstance(score, (int, float)) or isinstance(score, bool):
+            raise GraphCandidateError(f"{label} confidence_score must be a number between 0 and 1")
+        if not 0.0 <= float(score) <= 1.0:
+            raise GraphCandidateError(f"{label} confidence_score must be between 0 and 1")
 
 
 def _require_sources(
@@ -312,9 +365,14 @@ def _node_page(
         else ""
     )
     source_lines = "\n".join(f"  - {source}" for source in sources)
-    claim_lines = "\n".join(f"- {claim['text']} [source: {', '.join(_as_str_list(claim['sources']))}]" for claim in claims)
+    claim_lines = "\n".join(
+        f"- {claim['text']}{_confidence_suffix(claim)}"
+        f" [source: {', '.join(_as_str_list(claim['sources']))}]"
+        for claim in claims
+    )
     relation_lines = "\n".join(
         f"- {relation['type']} [[{_relation_target_title(relation, nodes_by_id)}]]"
+        f"{_confidence_suffix(relation)}"
         f" [source: {', '.join(_as_str_list(relation['sources']))}]"
         for relation in relations
     )
@@ -343,6 +401,7 @@ def _node_page(
         "---\n"
         f"# {node['title']}\n\n"
         f"{node['summary']}\n\n"
+        f"{_node_content_section(node)}"
         "## Claims\n\n"
         f"{claim_lines or '- No claims staged yet.'}\n\n"
         "## Relations\n\n"
@@ -350,6 +409,35 @@ def _node_page(
         "## Evidence\n\n"
         f"{evidence_lines}\n"
     )
+
+
+def _confidence_suffix(payload: dict[str, Any]) -> str:
+    label = str(payload.get("confidence", "")).strip()
+    score = payload.get("confidence_score")
+    if not label and score is None:
+        return ""
+    parts: list[str] = []
+    if label:
+        parts.append(label)
+    if score is not None:
+        try:
+            parts.append(f"{float(score):.2f}")
+        except (TypeError, ValueError):
+            pass
+    return f" [confidence: {', '.join(parts)}]"
+
+
+def _node_content_section(node: dict[str, Any]) -> str:
+    parts: list[str] = []
+    content = str(node.get("content", "")).strip()
+    if content:
+        parts.append(f"## Content\n\n{content}\n\n")
+    key_points = node.get("key_points")
+    if isinstance(key_points, list) and key_points:
+        lines = "\n".join(f"- {point}" for point in key_points if str(point).strip())
+        if lines:
+            parts.append(f"## Key Points\n\n{lines}\n\n")
+    return "".join(parts)
 
 
 def _conflict_page(conflict: dict[str, Any], host: str, run_id: str) -> str:

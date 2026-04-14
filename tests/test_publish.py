@@ -268,9 +268,9 @@ def test_create_reader_rewrite_handoff_writes_task_and_template(tmp_path: Path) 
     assert "TellMe Reader Rewrite Task" in task_markdown
     assert "wiki/index.md" in task_markdown
     assert "Page Role Contracts" in task_markdown
-    assert "Overview pages" in task_markdown
-    assert "Theme pages" in task_markdown
-    assert "Reference pages" in task_markdown
+    assert "Overview" in task_markdown
+    assert "Theme" in task_markdown
+    assert "Reference" in task_markdown
     assert "Anti-patterns to remove" in task_markdown
     template = json.loads(runtime.resolve_path(generate.result_template_path).read_text(encoding="utf-8"))
     assert template["candidate_type"] == "reader_page_rewrites"
@@ -390,3 +390,75 @@ def _stage_graph_candidate(runtime, tmp_path: Path) -> str:
         encoding="utf-8",
     )
     return consume_codex_result(runtime=runtime, result_path=result_path, consume_run_id="consume-run").staged_page
+
+
+def test_publish_all_skips_nodes_flagged_uncertain(tmp_path: Path) -> None:
+    """Nodes flagged uncertain by the LLM should stay staged and not appear in wiki/."""
+    project_root = tmp_path / "TellMe"
+    init_project(project_root, machine="test-pc")
+    runtime = load_runtime(project_root=project_root, host="codex")
+
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nBody.", encoding="utf-8")
+    ingest_run = RunStore(runtime.runs_dir).start("ingest", "codex")
+    ingest_file(runtime, source, ingest_run.run_id)
+
+    candidate_path = runtime.staging_dir / "graph" / "candidates" / "mixed.json"
+    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "candidate_type": "knowledge_graph_update",
+                "source_references": ["raw/source.md"],
+                "nodes": [
+                    {
+                        "id": "concept:confident-one",
+                        "kind": "concept",
+                        "title": "Confident One",
+                        "summary": "Clearly a new concept.",
+                        "sources": ["raw/source.md"],
+                    },
+                    {
+                        "id": "concept:unsure-one",
+                        "kind": "concept",
+                        "title": "Unsure One",
+                        "summary": "Not sure if this duplicates an existing node.",
+                        "sources": ["raw/source.md"],
+                        "update_action_hint": "uncertain",
+                    },
+                ],
+                "claims": [],
+                "relations": [],
+                "conflicts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result_path = runtime.runs_dir / "mixed-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "succeeded",
+                "host": "codex",
+                "run_id": "mixed-run",
+                "output_path": "staging/graph/candidates/mixed.json",
+                "source_references": ["raw/source.md"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    consume_codex_result(runtime=runtime, result_path=result_path, consume_run_id="mixed-consume")
+
+    publish_staged_graph(runtime=runtime, run_id="publish-run", host="codex")
+
+    # Confident node published
+    assert (runtime.wiki_dir / "references" / "confident-one.md").is_file()
+    # Uncertain node NOT published
+    assert not (runtime.wiki_dir / "references" / "unsure-one.md").exists()
+
+    state = ProjectState.load(runtime.state_dir)
+    # Uncertain node still staged (not promoted)
+    assert state.get_page("staging/concepts/unsure-one.md").status == ContentStatus.STAGED
+    assert state.nodes()["concept:unsure-one"]["update_action"] == "uncertain"

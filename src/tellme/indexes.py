@@ -148,58 +148,54 @@ def _reference_nodes(published_nodes: list[dict]) -> list[dict]:
 
 def _overview_page(themes: dict[str, dict], references: list[dict], source_backlog: list[dict]) -> str:
     lines = [
-        "## Summary",
+        "## 概览",
         "",
         _overview_summary(themes),
         "",
-        "## Recommended Reading Path",
-        "",
     ]
-    if not themes:
-        lines.append("No reader-facing themes yet.")
-    else:
+
+    if themes:
+        lines.extend(["## 推荐阅读路径", ""])
         for theme_name, theme in sorted(themes.items(), key=lambda item: (-len(item[1]["nodes"]), item[0].lower())):
-            lines.append(f"1. [{theme_name}]({theme['path']})")
-    lines.extend(["", "## Theme Map", ""])
-    if not themes:
-        lines.append("No reader-facing themes yet.")
-    else:
+            theme_desc = _first_sentence_from_nodes(theme["nodes"])
+            desc_suffix = f" — {theme_desc}" if theme_desc else ""
+            lines.append(f"1. [{theme_name}]({theme['path']}){desc_suffix}")
+        lines.extend(["", "## 主题地图", ""])
         for theme_name, theme in sorted(themes.items()):
             lines.append(f"- [{theme_name}]({theme['path']})")
-            if theme["subthemes"]:
-                for subtheme_name, subtheme in sorted(theme["subthemes"].items()):
-                    lines.append(f"- [{subtheme_name}]({subtheme['path']})")
-    lines.extend(["", "## Key References", ""])
-    if not references:
-        lines.append("No promoted reference pages yet.")
+            for subtheme_name, subtheme in sorted(theme["subthemes"].items()):
+                lines.append(f"  - [{subtheme_name}]({subtheme['path']})")
     else:
+        lines.extend(["尚未组织任何读者面向的主题。", ""])
+
+    if references:
+        lines.extend(["", "## 核心参考", ""])
         for reference in references:
-            lines.append(f"- [{reference['title']}]({reference['link']})")
-    lines.extend(["", "## Source Backlog", ""])
-    if not source_backlog:
-        lines.append("All published source summaries are already represented in promoted reader-facing pages.")
-    else:
+            ref_summary = str(reference["node"].get("summary", ""))
+            desc_suffix = f" — {ref_summary}" if ref_summary else ""
+            lines.append(f"- [{reference['title']}]({reference['link']}){desc_suffix}")
+
+    if source_backlog:
+        lines.extend(["", "## 待整理来源", ""])
         for item in source_backlog:
-            lines.append(
-                f"- [{item['title']}]({item['link']}) — source summary available, not yet promoted into a reader-facing reference or theme."
-            )
-    lines.extend(["", "## Thin Areas", ""])
+            lines.append(f"- [{item['title']}]({item['link']})")
+
     thin_areas = _thin_areas(themes)
-    if not thin_areas:
-        lines.append("No obvious thin areas yet.")
-    else:
+    if thin_areas:
+        lines.extend(["", "## 薄弱领域", ""])
         for area in thin_areas:
             lines.append(f"- {area}")
+
     lines.extend(
         [
             "",
-            "## Maintenance Surfaces",
+            "## 维护入口",
             "",
-            "- [Concepts](indexes/concepts.md)",
-            "- [Entities](indexes/entities.md)",
-            "- [Synthesis](indexes/synthesis.md)",
-            "- [Unresolved Conflicts](indexes/unresolved-conflicts.md)",
-            "- [Health Review](indexes/health-review.md)",
+            "- [概念索引](indexes/concepts.md)",
+            "- [实体索引](indexes/entities.md)",
+            "- [综合分析](indexes/synthesis.md)",
+            "- [未解决冲突](indexes/unresolved-conflicts.md)",
+            "- [健康检查](indexes/health-review.md)",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -207,133 +203,176 @@ def _overview_page(themes: dict[str, dict], references: list[dict], source_backl
 
 def _theme_page(theme_name: str, theme: dict, state: ProjectState) -> str:
     lines = [
-        "## Summary",
+        "## 概述",
         "",
         _theme_summary(theme_name, theme),
         "",
-        "## Why This Theme Matters",
-        "",
-        _theme_importance(theme_name, theme),
-        "",
-        "## Core Question",
-        "",
-        f"What does {theme_name} mean in this knowledge base, and how do its subtopics fit together?",
-        "",
-        "## Subthemes",
-        "",
     ]
-    if not theme["subthemes"]:
-        lines.append("No subthemes yet.")
-    else:
+
+    # Theme-level key points aggregated from all nodes
+    all_key_points = _collect_key_points(theme["nodes"])
+    if all_key_points:
+        lines.extend(["## 核心要点", ""])
+        for point in all_key_points[:10]:
+            lines.append(f"- {point}")
+        lines.append("")
+
+    # Subthemes with descriptions
+    if theme["subthemes"]:
+        lines.extend(["## 子主题", ""])
         for subtheme_name, subtheme in sorted(theme["subthemes"].items()):
-            lines.append(f"- [{subtheme_name}](../{subtheme['path']})")
-    lines.extend(["", "## Key References", ""])
+            subtheme_desc = _first_sentence_from_nodes(subtheme["nodes"])
+            lines.append(f"### [{subtheme_name}](../{subtheme['path']})")
+            lines.append("")
+            if subtheme_desc:
+                lines.append(subtheme_desc)
+                lines.append("")
+            sub_key_points = _collect_key_points(subtheme["nodes"], limit=3)
+            for point in sub_key_points:
+                lines.append(f"- {point}")
+            if sub_key_points:
+                lines.append("")
+
+    # Detailed knowledge per node
+    lines.extend(["## 详细内容", ""])
+    for node in sorted(theme["nodes"], key=lambda item: str(item.get("title", "")).lower()):
+        lines.append(f"### {node['title']}")
+        lines.append("")
+        content = str(node.get("content", "")).strip()
+        if content:
+            lines.append(content)
+        else:
+            lines.append(str(node.get("summary", "尚无详细内容。")))
+        lines.append("")
+
+    # Claims as supporting evidence
+    claim_lines = _claim_lines(theme["nodes"], state)
+    if claim_lines:
+        lines.extend(["## 关键论断", ""])
+        lines.extend(claim_lines)
+        lines.append("")
+
+    # Relationships
+    relationship_lines = _relationship_lines(theme["nodes"], state)
+    if relationship_lines:
+        lines.extend(["## 知识关联", ""])
+        lines.extend(relationship_lines)
+        lines.append("")
+
+    # References
     reference_nodes = [
         node for node in theme["nodes"] if str(node.get("reader_role", "reference")) == "reference"
     ]
-    if not reference_nodes:
-        lines.append("No promoted references yet.")
-    else:
+    if reference_nodes:
+        lines.extend(["## 参考页面", ""])
         for node in sorted(reference_nodes, key=lambda item: str(item.get("title", "")).lower()):
             lines.append(
                 f"- [{node['title']}](../references/{_slug(Path(str(node.get('published_path', node['id']))).stem)}.md)"
             )
-    lines.extend(["", "## Narrative", ""])
-    lines.append(_theme_narrative(theme_name, theme, state))
-    lines.extend(["", "## Key Claims", ""])
-    claim_lines = _claim_lines(theme["nodes"], state)
-    if not claim_lines:
-        lines.append("No key claims yet.")
-    else:
-        lines.extend(claim_lines)
-    lines.extend(["", "## Relationships", ""])
-    relationship_lines = _relationship_lines(theme["nodes"], state)
-    if not relationship_lines:
-        lines.append("No explicit relationships yet.")
-    else:
-        lines.extend(relationship_lines)
-    lines.extend(["", "## Coverage", ""])
-    for node in sorted(theme["nodes"], key=lambda item: str(item.get("title", "")).lower()):
-        lines.append(f"### {node['title']}")
         lines.append("")
-        lines.append(str(node.get("summary", "No summary available.")))
-        lines.append("")
-    lines.extend(["## Evidence", ""])
+
+    # Evidence sources
     theme_sources = sorted({source for node in theme["nodes"] for source in node.get("sources", [])})
-    if not theme_sources:
-        lines.append("No evidence sources yet.")
-    else:
+    if theme_sources:
+        lines.extend(["## 来源", ""])
         for source in theme_sources:
             lines.append(f"- `{source}`")
+
     return "\n".join(lines).rstrip() + "\n"
 
 
 def _subtheme_page(theme_name: str, subtheme_name: str, subtheme: dict, state: ProjectState) -> str:
     lines = [
-        "## Summary",
+        "## 概述",
         "",
         _subtheme_summary(subtheme_name, subtheme),
         "",
-        "## How This Fits",
-        "",
-        f"{subtheme_name} is one part of {theme_name} and should be read as a focused slice of that larger theme.",
-        "",
-        "## Narrative",
-        "",
-        _subtheme_narrative(subtheme_name, subtheme, state),
-        "",
-        "## Parent Theme",
-        "",
-        f"- [{theme_name}](../themes/{_slug(theme_name)}.md)",
-        "",
-        "## Key Claims",
+        f"所属主题：[{theme_name}](../themes/{_slug(theme_name)}.md)",
         "",
     ]
-    claim_lines = _claim_lines(subtheme["nodes"], state)
-    if not claim_lines:
-        lines.append("No key claims yet.")
-    else:
-        lines.extend(claim_lines)
-    lines.extend([
-        "",
-        "## Covered Knowledge",
-        "",
-    ])
+
+    # Key points from this subtheme's nodes
+    key_points = _collect_key_points(subtheme["nodes"])
+    if key_points:
+        lines.extend(["## 核心要点", ""])
+        for point in key_points:
+            lines.append(f"- {point}")
+        lines.append("")
+
+    # Detailed content per node
+    lines.extend(["## 详细内容", ""])
     for node in sorted(subtheme["nodes"], key=lambda item: str(item.get("title", "")).lower()):
         lines.append(f"### {node['title']}")
         lines.append("")
-        lines.append(str(node.get("summary", "No summary available.")))
+        content = str(node.get("content", "")).strip()
+        if content:
+            lines.append(content)
+        else:
+            lines.append(str(node.get("summary", "尚无详细内容。")))
         lines.append("")
-    lines.extend(["## Evidence", ""])
+
+    # Claims
+    claim_lines = _claim_lines(subtheme["nodes"], state)
+    if claim_lines:
+        lines.extend(["## 关键论断", ""])
+        lines.extend(claim_lines)
+        lines.append("")
+
+    # Evidence sources
     subtheme_sources = sorted({source for node in subtheme["nodes"] for source in node.get("sources", [])})
-    if not subtheme_sources:
-        lines.append("No evidence sources yet.")
-    else:
+    if subtheme_sources:
+        lines.extend(["## 来源", ""])
         for source in subtheme_sources:
             lines.append(f"- `{source}`")
+
     return "\n".join(lines).rstrip() + "\n"
 
 
 def _reference_page(node: dict, state: ProjectState) -> str:
-    lines = ["## Summary", "", str(node.get("summary", "No summary available.")), "", "## Theme Placement", ""]
+    lines: list[str] = []
+
+    # Content or summary as main body
+    content = str(node.get("content", "")).strip()
+    if content:
+        lines.extend([content, ""])
+    else:
+        lines.extend([str(node.get("summary", "尚无详细内容。")), ""])
+
+    # Key points
+    key_points = node.get("key_points")
+    if isinstance(key_points, list) and key_points:
+        lines.extend(["## 核心要点", ""])
+        for point in key_points:
+            if str(point).strip():
+                lines.append(f"- {point}")
+        lines.append("")
+
+    # Theme placement
     theme = str(node.get("theme", "")).strip()
     subtheme = str(node.get("subtheme", "")).strip()
-    if theme:
-        lines.append(f"- Theme: [{theme}](../themes/{_slug(theme)}.md)")
-    if subtheme:
-        lines.append(f"- Subtheme: [{subtheme}](../subthemes/{_slug(theme)}-{_slug(subtheme)}.md)")
-    if not theme and not subtheme:
-        lines.append("- No theme assignment yet.")
-    lines.extend(["", "## Claims", ""])
+    if theme or subtheme:
+        lines.extend(["## 所属主题", ""])
+        if theme:
+            lines.append(f"- 主题：[{theme}](../themes/{_slug(theme)}.md)")
+        if subtheme:
+            lines.append(f"- 子主题：[{subtheme}](../subthemes/{_slug(theme)}-{_slug(subtheme)}.md)")
+        lines.append("")
+
+    # Claims
     claims = [claim for claim in state.claims().values() if claim.get("subject") == node.get("id")]
-    if not claims:
-        lines.append("No claims yet.")
-    else:
+    if claims:
+        lines.extend(["## 关键论断", ""])
         for claim in claims:
             lines.append(f"- {claim['text']}")
-    lines.extend(["", "## Sources", ""])
-    for source in node.get("sources", []):
-        lines.append(f"- `{source}`")
+        lines.append("")
+
+    # Sources
+    sources = node.get("sources", [])
+    if sources:
+        lines.extend(["## 来源", ""])
+        for source in sources:
+            lines.append(f"- `{source}`")
+
     return "\n".join(lines) + "\n"
 
 
@@ -497,21 +536,30 @@ def _cleanup_stale_reader_facing_pages(
 
 def _overview_summary(themes: dict[str, dict]) -> str:
     if not themes:
-        return "No reader-facing themes have been organized yet."
-    names = sorted(themes)
-    if len(names) == 1:
-        return f"This knowledge base is currently organized around the theme {names[0]}."
-    preview = ", ".join(names[:3])
-    return f"This knowledge base is currently organized around the themes {preview}."
+        return "尚未组织任何读者面向的主题。"
+    # Build a substantive overview from node content
+    parts: list[str] = []
+    total_nodes = sum(len(theme["nodes"]) for theme in themes.values())
+    theme_names = sorted(themes)
+    parts.append(f"本知识库围绕 {len(theme_names)} 个主题组织了 {total_nodes} 个知识点。")
+    # Add a sentence about each theme based on actual content
+    for theme_name in sorted(themes, key=lambda name: -len(themes[name]["nodes"])):
+        theme = themes[theme_name]
+        desc = _first_sentence_from_nodes(theme["nodes"])
+        if desc:
+            parts.append(f"**{theme_name}**：{desc}")
+        else:
+            parts.append(f"**{theme_name}**：包含 {len(theme['nodes'])} 个知识点。")
+    return "\n\n".join(parts)
 
 
 def _thin_areas(themes: dict[str, dict]) -> list[str]:
     areas: list[str] = []
     for theme_name, theme in sorted(themes.items()):
         if len(theme["nodes"]) <= 1:
-            areas.append(f"{theme_name} has very little published coverage.")
+            areas.append(f"{theme_name} 的已发布内容非常有限。")
         if not theme["subthemes"]:
-            areas.append(f"{theme_name} has no subthemes yet.")
+            areas.append(f"{theme_name} 尚未划分子主题。")
     return areas
 
 
@@ -548,41 +596,72 @@ def _page_heading(path: Path) -> str:
 
 
 def _theme_summary(theme_name: str, theme: dict) -> str:
-    node_titles = [str(node.get("title", "Untitled")) for node in theme["nodes"]]
-    if not node_titles:
-        return f"{theme_name} does not have any published knowledge yet."
-    preview = ", ".join(node_titles[:3])
-    return f"{theme_name} currently organizes knowledge around {preview}."
-
-
-def _theme_importance(theme_name: str, theme: dict) -> str:
-    node_titles = [str(node.get("title", "Untitled")) for node in theme["nodes"]]
-    preview = ", ".join(node_titles[:2]) if node_titles else theme_name
-    return f"This theme matters because it groups together the key ideas and references around {preview}."
-
-
-def _theme_narrative(theme_name: str, theme: dict, state: ProjectState) -> str:
-    node_titles = [str(node.get("title", "Untitled")) for node in theme["nodes"]]
-    lead = ", ".join(node_titles[:3]) if node_titles else theme_name
-    relation_lines = _relationship_lines(theme["nodes"], state)
-    if relation_lines:
-        relation_text = relation_lines[0].removeprefix("- ")
-        return f"This theme centers on {lead}. One important relationship is that {relation_text}."
-    return f"This theme centers on {lead} and gathers the main ideas that shape {theme_name}."
+    """Generate a substantive theme summary from node content."""
+    nodes = theme["nodes"]
+    if not nodes:
+        return f"{theme_name} 尚无已发布的知识内容。"
+    # Collect content-based summaries
+    summaries: list[str] = []
+    for node in sorted(nodes, key=lambda n: str(n.get("title", "")).lower()):
+        content = str(node.get("content", "")).strip()
+        summary = str(node.get("summary", "")).strip()
+        if content:
+            # Use first paragraph of content
+            first_para = content.split("\n\n")[0].strip()
+            summaries.append(first_para)
+        elif summary:
+            summaries.append(summary)
+    if summaries:
+        return "\n\n".join(summaries)
+    return f"{theme_name} 包含 {len(nodes)} 个知识点，但尚无详细内容。"
 
 
 def _subtheme_summary(subtheme_name: str, subtheme: dict) -> str:
-    node_titles = [str(node.get("title", "Untitled")) for node in subtheme["nodes"]]
-    if not node_titles:
-        return f"{subtheme_name} does not have any published knowledge yet."
-    preview = ", ".join(node_titles[:3])
-    return f"{subtheme_name} focuses on {preview}."
+    """Generate a substantive subtheme summary from node content."""
+    nodes = subtheme["nodes"]
+    if not nodes:
+        return f"{subtheme_name} 尚无已发布的知识内容。"
+    summaries: list[str] = []
+    for node in sorted(nodes, key=lambda n: str(n.get("title", "")).lower()):
+        content = str(node.get("content", "")).strip()
+        summary = str(node.get("summary", "")).strip()
+        if content:
+            first_para = content.split("\n\n")[0].strip()
+            summaries.append(first_para)
+        elif summary:
+            summaries.append(summary)
+    if summaries:
+        return "\n\n".join(summaries)
+    return f"{subtheme_name} 包含 {len(nodes)} 个知识点，但尚无详细内容。"
 
 
-def _subtheme_narrative(subtheme_name: str, subtheme: dict, state: ProjectState) -> str:
-    claim_lines = _claim_lines(subtheme["nodes"], state)
-    if claim_lines:
-        return f"Within this subtheme, the main takeaway is: {claim_lines[0].removeprefix('- ')}"
-    node_titles = [str(node.get("title", "Untitled")) for node in subtheme["nodes"]]
-    preview = ", ".join(node_titles[:2]) if node_titles else subtheme_name
-    return f"Within this subtheme, the current focus is on {preview}."
+def _first_sentence_from_nodes(nodes: list[dict]) -> str:
+    """Extract the first meaningful sentence from the richest node in the list."""
+    for node in sorted(nodes, key=lambda n: -len(str(n.get("content", "")))):
+        content = str(node.get("content", "")).strip()
+        if content:
+            first_line = content.split("\n")[0].strip()
+            if len(first_line) > 10:
+                return first_line
+        summary = str(node.get("summary", "")).strip()
+        if summary:
+            return summary
+    return ""
+
+
+def _collect_key_points(nodes: list[dict], limit: int = 10) -> list[str]:
+    """Collect key_points from nodes, deduplicated and limited."""
+    points: list[str] = []
+    seen: set[str] = set()
+    for node in sorted(nodes, key=lambda n: str(n.get("title", "")).lower()):
+        node_points = node.get("key_points")
+        if not isinstance(node_points, list):
+            continue
+        for point in node_points:
+            text = str(point).strip()
+            if text and text not in seen:
+                seen.add(text)
+                points.append(text)
+                if len(points) >= limit:
+                    return points
+    return points

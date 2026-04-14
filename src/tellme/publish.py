@@ -104,6 +104,11 @@ def _select_staged_graph_pages(state: ProjectState, staged_path: str | None) -> 
         pages = [page for page in pages if page.path == staged_path]
         if not pages:
             raise PublishError(f"staged page is not tracked: {staged_path}")
+    uncertain_staged_paths = {
+        str(node.get("staged_path"))
+        for node in state.nodes().values()
+        if node.get("update_action") == "uncertain" and node.get("staged_path")
+    }
     return sorted(
         [
             page
@@ -119,6 +124,7 @@ def _select_staged_graph_pages(state: ProjectState, staged_path: str | None) -> 
                     "staging/reader-rewrite/",
                 )
             )
+            and page.path not in uncertain_staged_paths
         ],
         key=lambda page: page.path,
     )

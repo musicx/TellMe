@@ -159,9 +159,13 @@ Host: `{task.host}`
 
 ## Goal
 
-Rewrite existing reader-facing pages so they read more naturally while preserving source traceability and page role boundaries.
+改写现有的读者面向页面，使其更易读、更有信息量，同时保留来源可追溯性和页面角色边界。
 
-This is a structural rewrite task, not cosmetic polishing. Improve orientation, narrative flow, and reading order while keeping the page faithful to its sources and page role.
+这是内容深度增强任务，不是表面润色。需要从原始资料中补充解释、论据和细节，使每个页面**自身可读**。
+
+## 语言要求
+
+所有页面内容使用**中文**撰写。
 
 ## Allowed Read Roots
 
@@ -184,46 +188,47 @@ Do not write directly to `wiki/`.
 
 ## Page Role Contracts
 
-Overview pages:
+Overview 页面（概览）：
 
-- Act like a front door to the wiki.
-- Start by orienting the reader: what this knowledge base covers, what matters most, and how to read it.
-- Prefer a guided path over a long list of links.
+- 作为知识库的入口，告诉读者这里有什么、最重要的是什么、如何阅读。
+- 每个主题应附带一句话描述其核心内容。
+- 引导式阅读路径优先于链接列表。
 
-Theme pages:
+Theme 页面（主题）：
 
-- Read like chapter pages, not node inventories.
-- Open with the theme's main idea and why it matters.
-- Explain the major subthemes in a meaningful order.
-- Use claims and references to support the narrative, not replace it.
+- 像一本书的章节，不是知识点清单。
+- 开头用 2-3 段话概述该主题的核心观点。
+- 每个知识点应有完整的详细内容，读者不需要跳转就能理解。
+- Claims 和 Relations 作为证据支撑放在内容之后。
+- 自适应篇幅：内容丰富时展开，内容薄弱时简洁。
 
-Subtheme pages:
+Subtheme 页面（子主题）：
 
-- Explain one stable branch within a theme.
-- Make the connection to the parent theme explicit.
-- Keep a clear center of gravity; avoid turning into a miscellaneous note pile.
+- 解释主题下的一个聚焦分支。
+- 每个知识点展开详细内容。
+- 与父主题的关系明确说明。
 
-Reference pages:
+Reference 页面（参考）：
 
-- Be short, precise, and definition-first.
-- Clarify what the thing is, why it matters, and where it fits.
-- Do not turn into a full theme page or a raw extraction card.
+- 简短精确，定义优先。
+- 使用节点的 content 作为主体内容。
+- 不要膨胀为完整的主题页面。
 
 ## Anti-patterns to remove
 
-- summary-plus-bullet-dump structure with no opening orientation
-- lists of claims or relations used as the main body
-- evidence sections that overwhelm the explanation
-- repetitive prose that restates the same point in slightly different words
-- pages that read like extracted metadata rather than authored wiki content
+- 用节点标题拼接成的伪句子（如"本主题围绕 X、Y、Z 组织知识"）
+- Claims 或 Relations 列表作为页面主体
+- 循环论证（"本主题重要因为它整合了关键想法"）
+- 没有实质内容的框架性文字
+- 只有 summary 没有展开解释的知识点
 
 ## Rewrite Rules
 
-- Preserve source traceability and page role boundaries.
-- Keep frontmatter-compatible content and valid markdown.
-- Prefer explanation first, evidence second.
-- Make the first paragraph carry real orientation work.
-- When a page is too thin to support a full rewrite, tighten it into a precise short page instead of padding it out.
+- 从 `raw/` 源文件中提取具体的解释、论据和例子来充实页面。
+- 每个知识点的详细内容应自成一体，读者无需跳转即可理解。
+- 先解释，后证据。
+- 内容自适应：源材料丰富时多段展开，薄弱时简洁陈述。
+- 保留来源可追溯性和有效的 markdown 格式。
 
 ## Required Result JSON
 
