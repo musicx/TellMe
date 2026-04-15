@@ -89,7 +89,7 @@ def test_workflow_command_fails_outside_project(tmp_path: Path) -> None:
     assert "not inside a TellMe project" in result.stderr
 
 
-def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path, monkeypatch) -> None:
+def test_cli_compile_without_flags_errors_with_handoff_hint(tmp_path: Path, monkeypatch) -> None:
     project_root = tmp_path / "TellMe"
     data_root = tmp_path / "tellme-data"
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
@@ -100,9 +100,19 @@ def test_cli_compile_and_query_are_usable_workflows(tmp_path: Path, monkeypatch)
 
     compile_result = run_cli("--project", str(project_root), "compile", cwd=tmp_path)
 
-    assert compile_result.returncode == 0, compile_result.stderr
-    assert "tellme compile: published 1 page(s)" in compile_result.stdout
-    assert "implementation pending" not in compile_result.stdout
+    assert compile_result.returncode != 0
+    assert "--handoff" in compile_result.stderr
+    assert "--consume-result" in compile_result.stderr
+
+
+def test_cli_query_runs_against_ingested_sources(tmp_path: Path, monkeypatch) -> None:
+    project_root = tmp_path / "TellMe"
+    data_root = tmp_path / "tellme-data"
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
+    source = tmp_path / "source.md"
+    source.write_text("# Source\n\nAlpha content for TellMe.", encoding="utf-8")
+    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
+    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
 
     query_result = run_cli("--project", str(project_root), "query", "alpha", cwd=tmp_path)
 
@@ -120,37 +130,19 @@ def test_cli_query_stage_writes_synthesis_candidate(tmp_path: Path, monkeypatch)
     source.write_text("# Source\n\nAlpha content for TellMe.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
     run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
-    run_cli("--project", str(project_root), "compile", cwd=tmp_path)
+    # Seed a published wiki page so query --stage has something to match against.
+    wiki_page = data_root / "wiki" / "concepts" / "alpha.md"
+    wiki_page.parent.mkdir(parents=True, exist_ok=True)
+    wiki_page.write_text(
+        "---\npage_type: concept\nstatus: published\n---\n# Alpha\n\nAlpha content seed.\n",
+        encoding="utf-8",
+    )
 
     query_result = run_cli("--project", str(project_root), "query", "alpha", "--stage", cwd=tmp_path)
 
     assert query_result.returncode == 0, query_result.stderr
     assert "tellme query: staged staging/synthesis/alpha.md" in query_result.stdout
     assert (runtime_root / "staging" / "synthesis" / "alpha.md").is_file()
-
-
-def test_cli_compile_reports_staged_pages_when_policy_disables_direct_publish(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    project_root = tmp_path / "TellMe"
-    data_root = tmp_path / "tellme-data"
-    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(data_root))
-    source = tmp_path / "source.md"
-    source.write_text("# Source\n\nNeeds review.", encoding="utf-8")
-    run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
-    (project_root / "config" / "policies" / "publish.toml").write_text(
-        "[publish]\nsource_summary_direct_publish = false\n",
-        encoding="utf-8",
-    )
-    run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
-
-    result = run_cli("--project", str(project_root), "compile", cwd=tmp_path)
-
-    assert result.returncode == 0, result.stderr
-    assert "tellme compile: published 0 page(s)" in result.stdout
-    assert "tellme compile: staged 1 page(s)" in result.stdout
-    assert "staging/sources/source.md" in result.stdout
 
 
 def test_cli_compile_codex_handoff_and_consume_result(tmp_path: Path, monkeypatch) -> None:
@@ -407,7 +399,13 @@ def test_cli_publish_all_publishes_staged_query_synthesis(tmp_path: Path, monkey
     source.write_text("# Source\n\nAlpha content for TellMe.", encoding="utf-8")
     run_cli("init", str(project_root), "--machine", "test-pc", cwd=tmp_path)
     run_cli("--project", str(project_root), "ingest", str(source), cwd=tmp_path)
-    run_cli("--project", str(project_root), "compile", cwd=tmp_path)
+    # Seed a published wiki page so query --stage has something to match against.
+    wiki_page = data_root / "wiki" / "concepts" / "alpha.md"
+    wiki_page.parent.mkdir(parents=True, exist_ok=True)
+    wiki_page.write_text(
+        "---\npage_type: concept\nstatus: published\n---\n# Alpha\n\nAlpha content seed.\n",
+        encoding="utf-8",
+    )
     run_cli("--project", str(project_root), "query", "alpha", "--stage", cwd=tmp_path)
 
     published = run_cli("--project", str(project_root), "--host", "codex", "publish", "--all", cwd=tmp_path)

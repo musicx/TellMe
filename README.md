@@ -146,12 +146,7 @@ health/reflection consume 后，TellMe 会：
 - 在 `wiki/indexes/health-review.md` 暴露 review queue
 - 支持从单条 finding 发起 focused compile handoff，并在处理后 resolve finding
 
-如果希望所有编译结果先进入 staging 审核，把项目里的 `config/policies/publish.toml` 改成：
-
-```toml
-[publish]
-source_summary_direct_publish = false
-```
+编译现在完全走宿主 handoff：`tellme compile` 不再支持直接把原文镜像到 wiki。使用 `tellme --host codex compile --handoff` 生成任务，宿主完成后通过 `tellme --host codex compile --consume-result <result.json>` 回流到 staging。
 
 多宿主身份可通过 `--host` 指定：
 

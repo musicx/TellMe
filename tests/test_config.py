@@ -47,7 +47,6 @@ def test_init_creates_default_host_and_policy_configs(tmp_path: Path, monkeypatc
 
     for host in ["claude-code", "codex", "opencode"]:
         assert (project_root / "config" / "hosts" / f"{host}.toml").is_file()
-    assert (project_root / "config" / "policies" / "publish.toml").is_file()
     assert (project_root / "config" / "policies" / "lint.toml").is_file()
 
 
@@ -64,7 +63,6 @@ def test_load_runtime_includes_selected_host_and_policies(
     assert runtime.host is not None
     assert runtime.host.name == "claude-code"
     assert runtime.host.preferred_model == "host-default"
-    assert runtime.policies["publish"]["source_summary_direct_publish"] is True
     assert runtime.policies["lint"]["check_page_hash_drift"] is True
 
 

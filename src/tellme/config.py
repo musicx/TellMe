@@ -224,7 +224,6 @@ def _load_host(root: Path, host: str | None) -> HostSettings | None:
 
 def _load_policies(root: Path) -> dict[str, dict[str, Any]]:
     policies: dict[str, dict[str, Any]] = {
-        "publish": {"source_summary_direct_publish": True},
         "lint": {"check_page_hash_drift": True, "check_running_runs": True},
     }
     policy_dir = root / "config" / "policies"

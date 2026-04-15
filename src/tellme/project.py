@@ -25,7 +25,6 @@ def init_project(project_root: Path, machine: str) -> None:
     _write_if_missing(project_root / "config" / "project.toml", _project_toml())
     for host in ("claude-code", "codex", "opencode"):
         _write_if_missing(project_root / "config" / "hosts" / f"{host}.toml", _host_toml(host))
-    _write_if_missing(project_root / "config" / "policies" / "publish.toml", _publish_policy_toml())
     _write_if_missing(project_root / "config" / "policies" / "lint.toml", _lint_policy_toml())
     _write_if_missing(
         project_root / "config" / "machines" / f"{machine}.toml",
@@ -70,12 +69,6 @@ def _host_toml(host: str) -> str:
 name = "{host}"
 preferred_model = "host-default"
 command_profile = "default"
-"""
-
-
-def _publish_policy_toml() -> str:
-    return """[publish]
-source_summary_direct_publish = true
 """
 
 

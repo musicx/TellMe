@@ -7,7 +7,6 @@ from pathlib import Path
 
 from . import __version__
 from .codex import CodexHandoffError, CodexResultError, consume_codex_result, create_codex_handoff
-from .compiler import compile_sources
 from .config import load_runtime
 from .hosts import KNOWN_HOSTS
 from .health import (
@@ -411,13 +410,12 @@ def _handle_compile(args: argparse.Namespace) -> int:
                 "staged_page": result.staged_page,
                 "source_references": result.source_references,
             }
-        result = compile_sources(runtime=runtime, run_id=run.run_id, host=args.host)
-        return {
-            "published_pages": result.published_pages,
-            "staged_pages": result.staged_pages,
-            "host_task_path": result.host_task_path,
-            "artifact_path": result.artifact_path,
-        }
+        raise CodexHandoffError(
+            "tellme compile requires --handoff or --consume-result. "
+            "Direct compile (source-summary mirroring) has been removed; use the "
+            "host handoff workflow instead: `tellme --host codex compile --handoff` "
+            "followed by `tellme --host codex compile --consume-result <path>`."
+        )
 
     try:
         run = run_workflow(
@@ -440,14 +438,7 @@ def _handle_compile(args: argparse.Namespace) -> int:
     if args.consume_result:
         print(f"tellme compile: consumed codex result {run.outputs['staged_page']}")
         return 0
-    published_pages = run.outputs.get("published_pages", [])
-    staged_pages = run.outputs.get("staged_pages", [])
-    print(f"tellme compile: published {len(published_pages)} page(s)")
-    for page in published_pages:
-        print(page)
-    print(f"tellme compile: staged {len(staged_pages)} page(s)")
-    for page in staged_pages:
-        print(page)
+    # All non-handoff/non-consume branches should have raised in operation().
     return 0
 
 
