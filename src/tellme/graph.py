@@ -502,7 +502,27 @@ def _node_collection(kind: str) -> str:
 
 
 def _slug(value: str) -> str:
-    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-").lower()
+    # Preserve ASCII alphanumerics, dot/underscore/hyphen, and any non-ASCII
+    # (e.g. CJK) letters. Only ASCII punctuation and whitespace collapse to `-`.
+    # This matches the contract documented in skills/tellme/SKILL.md.
+    def _keep(ch: str) -> bool:
+        if ch in "._-":
+            return True
+        if ch.isascii():
+            return ch.isalnum()
+        return ch.isalnum()
+
+    buf: list[str] = []
+    prev_dash = False
+    for ch in value.strip():
+        if _keep(ch):
+            buf.append(ch.lower() if ch.isascii() else ch)
+            prev_dash = False
+        else:
+            if not prev_dash:
+                buf.append("-")
+                prev_dash = True
+    slug = "".join(buf).strip("-")
     return slug or "node"
 
 

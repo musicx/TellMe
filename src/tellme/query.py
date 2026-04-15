@@ -133,7 +133,18 @@ def _answer_markdown(
 
 
 def _slug(value: str) -> str:
-    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-").lower()
+    # Preserve non-ASCII letters (e.g. CJK). Mirrors tellme.graph._slug contract.
+    buf: list[str] = []
+    prev_dash = False
+    for ch in value.strip():
+        if ch in "._-" or (ch.isascii() and ch.isalnum()) or (not ch.isascii() and ch.isalnum()):
+            buf.append(ch.lower() if ch.isascii() else ch)
+            prev_dash = False
+        else:
+            if not prev_dash:
+                buf.append("-")
+                prev_dash = True
+    slug = "".join(buf).strip("-")
     return slug[:80] or "query"
 
 def _staged_synthesis_markdown(
