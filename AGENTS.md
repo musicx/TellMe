@@ -22,6 +22,14 @@ TellMe 是一个混合式 LLM-wiki 编排器：
 
 `wiki/` 不是完整系统状态，只是面向 Obsidian 的发布目录。
 
+### 推荐的目录布局
+
+- `raw/`、`staging/`、`wiki/` 位于 Obsidian vault 内，这样候选内容（staging）和已发布内容（wiki）都对作者可见。审核工作流直接发生在 Obsidian 里。
+- `state/`、`runs/` 可以放在 vault 之外（例如 `~/.tmp/tellme/<project-slug>/`），因为它们是运行时元数据，Obsidian 侧不需要展示。
+- 具体路径由 `config/machines/<hostname>.toml` 控制，可按机器自定义。
+
+`staging/` 中的页面一旦被 `publish` 成功搬到 `wiki/`，对应的 staged 文件和 state 中的 PageRecord 会自动清理，避免与已发布副本重复。保留在 `staging/` 中的条目因此明确表达“待审核/有冲突/不确定”。
+
 ## 知识图谱目标
 
 TellMe 的最终 wiki 不应是一组 raw document mirror。宿主加工 raw 时，应抽取核心概念、实体、claim 和 relation，对照已有 wiki graph，优先补充已有知识点；只有不存在对应节点时才新建节点。发现矛盾时，不应直接覆盖，应生成 conflict 或 explanation candidate 并进入 `staging/`。
