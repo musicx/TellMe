@@ -49,19 +49,6 @@ def publish_staged_graph(
                 encoding="utf-8",
             )
             page_hash = hashlib.sha256(vault_path.read_bytes()).hexdigest()
-        state.upsert_page(
-            PageRecord(
-                path=page.path,
-                page_type=page.page_type,
-                status=ContentStatus.PUBLISHED,
-                sha256=page.sha256,
-                sources=page.sources,
-                last_host=host,
-                last_run_id=run_id,
-                published_path=vault_rel,
-                staged_path=page.path,
-            )
-        )
         if vault_rel is not None and page_hash is not None:
             state.upsert_page(
                 PageRecord(
@@ -86,6 +73,28 @@ def publish_staged_graph(
         )
         if vault_rel is not None:
             published_pages.append(vault_rel)
+            _cleanup_staged_page(
+                state=state,
+                runtime=runtime,
+                staged_rel=page.path,
+            )
+        else:
+            # Embedded-role pages never produce a vault artifact; keep the
+            # staged PageRecord marked as published so indexes can reason
+            # about it, but also keep the staged file available for re-runs.
+            state.upsert_page(
+                PageRecord(
+                    path=page.path,
+                    page_type=page.page_type,
+                    status=ContentStatus.PUBLISHED,
+                    sha256=page.sha256,
+                    sources=page.sources,
+                    last_host=host,
+                    last_run_id=run_id,
+                    published_path=None,
+                    staged_path=page.path,
+                )
+            )
 
     if staged_path is None:
         include_reader_facing = not any(
@@ -230,6 +239,29 @@ def _publish_record(record: dict, published_path: str, host: str, run_id: str, u
         updated.pop("published_path", None)
     else:
         updated["published_path"] = published_path
+        # Once the content lives in wiki/, the staged file is about to be
+        # deleted. Drop the dangling staged_path so reconcile and indexes
+        # don't try to read a file that no longer exists.
+        updated.pop("staged_path", None)
     updated["last_host"] = host
     updated["last_run_id"] = run_id
     upsert(updated)
+
+
+def _cleanup_staged_page(
+    state: ProjectState,
+    runtime: ProjectRuntime,
+    staged_rel: str,
+) -> None:
+    """Remove a staged page from disk and from state after successful publish.
+
+    This runs only after the vault artifact has been written and the published
+    PageRecord has been upserted, so the published content is already the
+    source of truth. Conflict pages and uncertain nodes are filtered out
+    upstream in ``_select_staged_graph_pages`` and never reach this helper.
+    """
+
+    staged_path = runtime.resolve_path(staged_rel)
+    if staged_path.is_file():
+        staged_path.unlink()
+    state.delete_page(staged_rel)

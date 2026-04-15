@@ -36,7 +36,11 @@ def test_publish_staged_graph_page_to_vault_and_updates_state(tmp_path: Path) ->
     node = state.nodes()["concept:codex-graph-candidate"]
     assert node["status"] == "published"
     assert node["published_path"] == "wiki/references/codex-graph-candidate.md"
-    assert node["staged_path"] == "staging/concepts/codex-graph-candidate.md"
+    # After publish, the staged page and its state record are cleaned up:
+    # the vault artifact is now the source of truth.
+    assert "staged_path" not in node
+    assert not (runtime.staging_dir / "concepts" / "codex-graph-candidate.md").exists()
+    assert "staging/concepts/codex-graph-candidate.md" not in state.pages()
 
 
 def test_publish_staged_graph_all_publishes_each_staged_node(tmp_path: Path) -> None:
@@ -459,6 +463,12 @@ def test_publish_all_skips_nodes_flagged_uncertain(tmp_path: Path) -> None:
     assert not (runtime.wiki_dir / "references" / "unsure-one.md").exists()
 
     state = ProjectState.load(runtime.state_dir)
-    # Uncertain node still staged (not promoted)
+    # Uncertain node still staged — its file and PageRecord must be preserved
+    # so a reviewer can act on it.
+    assert (runtime.staging_dir / "concepts" / "unsure-one.md").is_file()
     assert state.get_page("staging/concepts/unsure-one.md").status == ContentStatus.STAGED
     assert state.nodes()["concept:unsure-one"]["update_action"] == "uncertain"
+    # Confident node's staged file and PageRecord are cleaned up — the
+    # vault artifact is now the source of truth.
+    assert not (runtime.staging_dir / "concepts" / "confident-one.md").exists()
+    assert "staging/concepts/confident-one.md" not in state.pages()
